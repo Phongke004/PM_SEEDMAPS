@@ -1,0 +1,11 @@
+<Solution>
+  <Project Path="AppApi.Common/AppApi.Common.csproj" />
+  <Project Path="AppApi.DataAccess/AppApi.DataAccess.csproj" />
+  <Project Path="AppApi.DTO/AppApi.DTO.csproj" />
+  <Project Path="AppApi.Entities/AppApi.Entities.csproj" />
+  <Project Path="AppApi.Infrastructure/AppApi.Infrastructure.csproj" />
+  <Project Path="AppApi.Mapping/AppApi.Mapping.csproj" />
+  <Project Path="AppApi.Services/AppApi.Services.csproj" />
+  <Project Path="AppApi.UnitTest/AppApi.UnitTest.csproj" />
+  <Project Path="AppApi.WebApi/AppApi.WebApi.csproj" />
+</Solution>
