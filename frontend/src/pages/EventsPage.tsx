@@ -5,6 +5,7 @@ import { PageHeader, LoadingSpinner, ErrorBanner } from '@/components/PageHeader
 import { Modal } from '@/components/Modal';
 import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/Confirm';
 import { Plus, CalendarDays, Pencil, Trash2, Clock, MapPin, Users } from 'lucide-react';
 
 type EventWithStats = AppEvent & {
@@ -22,6 +23,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 
 export function EventsPage() {
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [events, setEvents] = useState<EventWithStats[]>([]);
   const [halls, setHalls] = useState<Hall[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,7 +136,13 @@ export function EventsPage() {
   };
 
   const handleDelete = async (evt: AppEvent) => {
-    if (!confirm(`Xóa sự kiện "${evt.name}"? Tất cả người tham dự và bố trí chỗ sẽ bị xóa.`)) return;
+    const confirmed = await confirm({
+      title: 'Xóa sự kiện',
+      message: `Xóa sự kiện "${evt.name}"? Tất cả người tham dự và bố trí chỗ sẽ bị xóa.`,
+      danger: true,
+      confirmText: 'Xóa',
+    });
+    if (!confirmed) return;
     try {
       await dataService.deleteEvent(evt.id);
       showToast('Đã xóa sự kiện thành công', 'success');

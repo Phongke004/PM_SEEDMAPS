@@ -111,4 +111,84 @@ public class RolePermissionService : IRolePermissionService
 
         return userRoles.Contains(mapping.Role.Name, StringComparer.OrdinalIgnoreCase);
     }
+
+    public async Task<IEnumerable<DTO.RBAC.ModuleDto>> GetAllModulesWithFunctionsAsync()
+    {
+        var modules = await _uow.Modules.Query()
+            .Include(m => m.Functions)
+            .ToListAsync();
+
+        return modules.Select(m => new DTO.RBAC.ModuleDto
+        {
+            Id = m.Id,
+            Code = m.Code,
+            Name = m.Name,
+            Description = m.Description,
+            Functions = m.Functions.Select(f => new DTO.RBAC.FunctionDto
+            {
+                Id = f.Id,
+                ModuleId = f.ModuleId,
+                Code = f.Code,
+                Name = f.Name,
+                Description = f.Description
+            }).ToList()
+        });
+    }
+
+    public async Task<IEnumerable<Guid>> GetRoleFunctionIdsAsync(Guid roleId)
+    {
+        return await _uow.RoleFunctions.Query()
+            .Where(rf => rf.RoleId == roleId)
+            .Select(rf => rf.FunctionId)
+            .ToListAsync();
+    }
+
+    public async Task<bool> UpdateRoleFunctionsAsync(DTO.RBAC.RolePermissionUpdateDto request)
+    {
+        var existingFunctions = await _uow.RoleFunctions.Query()
+            .Where(rf => rf.RoleId == request.RoleId)
+            .ToListAsync();
+
+        _uow.RoleFunctions.RemoveRange(existingFunctions);
+
+        foreach (var functionId in request.FunctionIds)
+        {
+            await _uow.RoleFunctions.AddAsync(new RoleFunction
+            {
+                RoleId = request.RoleId,
+                FunctionId = functionId
+            });
+        }
+
+        await _uow.CompleteAsync();
+        return true;
+    }
+    public async Task<IEnumerable<Guid>> GetAccountFunctionIdsAsync(Guid accountId)
+    {
+        return await _uow.AccountFunctions.Query()
+            .Where(af => af.AccountId == accountId)
+            .Select(af => af.FunctionId)
+            .ToListAsync();
+    }
+
+    public async Task<bool> UpdateAccountFunctionsAsync(DTO.RBAC.AccountPermissionUpdateDto request)
+    {
+        var existingFunctions = await _uow.AccountFunctions.Query()
+            .Where(af => af.AccountId == request.AccountId)
+            .ToListAsync();
+
+        _uow.AccountFunctions.RemoveRange(existingFunctions);
+
+        foreach (var functionId in request.FunctionIds)
+        {
+            await _uow.AccountFunctions.AddAsync(new AccountFunction
+            {
+                AccountId = request.AccountId,
+                FunctionId = functionId
+            });
+        }
+
+        await _uow.CompleteAsync();
+        return true;
+    }
 }

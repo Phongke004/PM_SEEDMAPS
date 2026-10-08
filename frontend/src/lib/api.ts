@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:7220/api';
 
 export interface Hall {
   id: string;
@@ -67,23 +67,68 @@ export interface Assignment {
   attendee?: Attendee;
 }
 
+export interface AppRole {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface RbacFunction {
+  id: string;
+  moduleId: string;
+  code: string;
+  name: string;
+  description: string;
+}
+
+export interface RbacModule {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  functions: RbacFunction[];
+}
+
+import { SecureStorage } from '../utils/storage';
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
+  const token = SecureStorage.getItem<string>('token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     headers: {
-      'Content-Type': 'application/json',
+      ...headers,
       ...options?.headers,
     },
     ...options,
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      SecureStorage.removeItem('token');
+      SecureStorage.removeItem('userRoles');
+      window.location.reload();
+    }
     const errorData = await response.json().catch(() => ({ message: response.statusText }));
     throw new Error(errorData.message || 'Lỗi khi gọi API');
   }
 
   return response.json();
 }
+
+export const apiAuth = {
+  login: (data: any) => request<any>('/Auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  forgotPassword: (data: { username: string, email: string }) => request<any>('/Auth/forgot-password', { method: 'POST', body: JSON.stringify(data) }),
+  resetPassword: (data: any) => request<any>('/Auth/reset-password', { method: 'POST', body: JSON.stringify(data) }),
+  updateProfile: (data: any) => request<any>('/Auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
+};
 
 // Halls API
 export const apiHalls = {
@@ -96,10 +141,10 @@ export const apiHalls = {
 
 // Hall Elements API
 export const apiElements = {
-  getByHall: (hallId: string) => request<HallElement[]>(`/halls/${hallId}/elements`),
+  getByHall: (hallId: string) => request<HallElement[]>(`/halls/${hallId}/seats`),
   saveBatch: (hallId: string, elements: Partial<HallElement>[]) =>
-    request<{ message: string; count: number }>(`/halls/${hallId}/elements/batch`, { method: 'PUT', body: JSON.stringify(elements) }),
-  delete: (id: string) => request<{ message: string }>(`/elements/${id}`, { method: 'DELETE' }),
+    request<{ message: string; count: number }>(`/halls/${hallId}/seats/batch`, { method: 'POST', body: JSON.stringify({ seats: elements }) }),
+  delete: (id: string) => request<{ message: string }>(`/seats/${id}`, { method: 'DELETE' }),
 };
 
 // Events API
@@ -114,7 +159,7 @@ export const apiEvents = {
 // Attendees API
 export const apiAttendees = {
   getByEvent: (eventId: string) => request<Attendee[]>(`/events/${eventId}/attendees`),
-  create: (data: Partial<Attendee>) => request<Attendee>('/attendees', { method: 'POST', body: JSON.stringify(data) }),
+  create: (eventId: string, data: Partial<Attendee>) => request<Attendee>(`/events/${eventId}/attendees`, { method: 'POST', body: JSON.stringify(data) }),
   importBatch: (eventId: string, list: Partial<Attendee>[]) =>
     request<{ message: string; count: number }>(`/events/${eventId}/attendees/batch`, { method: 'POST', body: JSON.stringify(list) }),
   update: (id: string, data: Partial<Attendee>) => request<Attendee>(`/attendees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -125,11 +170,43 @@ export const apiAttendees = {
 export const apiAssignments = {
   getByEvent: (eventId: string) => request<Assignment[]>(`/events/${eventId}/assignments`),
   assign: (eventId: string, elementId: string, attendeeId: string | null) =>
-    request<Assignment>('/assignments', {
+    request<Assignment>(`/events/${eventId}/assignments`, {
       method: 'POST',
-      body: JSON.stringify({ event_id: eventId, element_id: elementId, attendee_id: attendeeId }),
+      body: JSON.stringify({ eventId, seatId: elementId, attendeeId }),
     }),
-  unassign: (id: string) => request<{ message: string }>(`/assignments/${id}`, { method: 'DELETE' }),
+  unassign: (eventId: string, seatId: string) => request<{ message: string }>(`/events/${eventId}/assignments/${seatId}`, { method: 'DELETE' }),
   autoAssign: (eventId: string, mode: string = 'alphabetical') =>
     request<{ message: string; assigned_count: number }>(`/events/${eventId}/auto-assign?mode=${mode}`, { method: 'POST' }),
+};
+
+// Roles / RBAC API
+export const apiRoles = {
+  getAll: () => request<AppRole[]>('/roles'),
+  getModules: () => request<RbacModule[]>('/roles/modules'),
+  getRolePermissions: (roleId: string) => request<string[]>(`/roles/${roleId}/permissions`),
+  updateRolePermissions: (roleId: string, functionIds: string[]) => 
+    request<{ message: string }>(`/roles/${roleId}/permissions`, { 
+      method: 'PUT', 
+      body: JSON.stringify({ roleId, functionIds }) 
+    }),
+};
+
+// Accounts API
+export interface AppAccount {
+  id: string;
+  username: string;
+  fullName: string;
+  email: string;
+  department: string;
+  roles: string[];
+}
+
+export const apiAccounts = {
+  getAll: () => request<AppAccount[]>('/Auth/accounts'),
+  getPermissions: (accountId: string) => request<string[]>(`/Auth/accounts/${accountId}/permissions`),
+  updatePermissions: (accountId: string, functionIds: string[]) =>
+    request<{ message: string }>(`/Auth/accounts/${accountId}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify({ accountId, functionIds })
+    }),
 };

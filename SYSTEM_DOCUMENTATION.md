@@ -50,6 +50,9 @@ erDiagram
     events ||--o{ assignments : "áp dụng"
     hall_elements ||--o{ assignments : "được gán cho"
     attendees ||--o{ assignments : "ngồi tại"
+    roles ||--o{ role_functions : "được cấp quyền"
+    app_modules ||--o{ app_functions : "có chức năng"
+    app_functions ||--o{ role_functions : "liên kết"
 
     users {
         uuid id PK
@@ -161,6 +164,23 @@ erDiagram
   * Unique Constraint `(event_id, element_id)`: Một ghế chỉ xuất hiện 1 lần trong 1 sự kiện.
   * Unique Constraint `(event_id, attendee_id)`: Một đại biểu chỉ được ngồi 1 ghế trong 1 sự kiện.
 
+#### 7. Bảng `app_modules` (Quản lý Module Hệ Thống)
+* `id` (UUID, Primary Key): Mã module.
+* `code` (NVARCHAR(50)): Mã định danh hệ thống (VD: `EVENT_MGT`).
+* `name` (NVARCHAR(255)): Tên hiển thị module.
+* `description` (NVARCHAR(MAX)): Mô tả về module.
+
+#### 8. Bảng `app_functions` (Quản lý Chức năng)
+* `id` (UUID, Primary Key): Mã chức năng.
+* `module_id` (UUID, Foreign Key -> `app_modules.id`): Thuộc module nào.
+* `code` (NVARCHAR(50)): Mã định danh chức năng (VD: `CREATE_EVENT`).
+* `name` (NVARCHAR(255)): Tên thao tác (VD: "Thêm sự kiện").
+* `description` (NVARCHAR(MAX)): Mô tả chức năng.
+
+#### 9. Bảng `role_functions` (Mapping Phân quyền)
+* `role_id` (UUID, Primary Key, Foreign Key -> `roles.id`): Role được gán quyền.
+* `function_id` (UUID, Primary Key, Foreign Key -> `app_functions.id`): Chức năng được gán.
+
 ---
 
 ## 4. DANH SÁCH & CHI TIẾT CÁC CHỨC NĂNG HỆ THỐNG
@@ -179,6 +199,7 @@ Giao diện hệ thống bao gồm 8 phân hệ chính:
 │ 6. Assignment │ Gán Chỗ Ngồi Tương Tác & Gán Tự Động Thuật Toán        │
 │ 7. Live View  │ Chế độ Trình Chiếu Màn Hình Lớn & Tra Cứu Trực Tiếp    │
 │ 8. Print/PDF  │ Xuất Sơ Đồ Vector High-Res & In Thẻ/Biển Tên Bàn      │
+│ 9. RBAC       │ Quản lý Hệ thống Phân quyền Động cho Module, Function │
 └───────────────┴────────────────────────────────────────────────────────┘
 ```
 
@@ -288,6 +309,14 @@ Phục vụ màn hình LED hội trường hoặc bàn đón tiếp check-in đ�
 * **In Sơ đồ Chỗ ngồi (Seating Map Print):** Xuất sơ đồ hội trường dạng chuẩn Vector high-res để in ấn bản khổ lớn (A0, A1, A3, A4).
 * **Xuất Báo cáo danh sách xếp chỗ:** Xuất file chi tiết vị trí ngồi của từng đại biểu xếp theo thứ tự hàng/ghế hoặc theo bảng chữ cái.
 * **In Thẻ Đại Biểu & Biển Tên Để Bàn (Table Tents / Name Cards):** Tự động dàn trang in biển tên để bàn kèm thông tin Họ tên, Chức vụ, Đơn vị và Số ghế ngồi chính xác.
+
+---
+
+### 4.9. Phân hệ 9: Phân quyền hệ thống (RBAC - Role-Based Access Control)
+* **Quản lý danh sách Modules & Functions:** Ghi nhận toàn bộ tính năng và module đang có của hệ thống (VD: Module Hội trường, Chức năng Thêm/Sửa/Xóa hội trường).
+* **Quản lý Role & Phân quyền động:** 
+  * Cho phép Admin gán hoặc gỡ quyền truy cập từng chức năng nhỏ (Function) cho từng Role khác nhau thông qua giao diện Checkbox trực quan.
+  * Việc phân quyền được kiểm tra chặt chẽ ở cả Frontend (ẩn/hiện UI/nút bấm) và Backend (chặn truy cập API trái phép).
 
 ---
 

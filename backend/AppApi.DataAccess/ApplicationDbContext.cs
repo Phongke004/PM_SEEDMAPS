@@ -14,6 +14,10 @@ public class ApplicationDbContext : DbContext
     public virtual DbSet<Role> Roles { get; set; } = null!;
     public virtual DbSet<AccountRole> AccountRoles { get; set; } = null!;
     public virtual DbSet<ApiRoleMapping> ApiRoleMappings { get; set; } = null!;
+    public virtual DbSet<AppModule> Modules { get; set; } = null!;
+    public virtual DbSet<AppFunction> Functions { get; set; } = null!;
+    public virtual DbSet<RoleFunction> RoleFunctions { get; set; } = null!;
+    public virtual DbSet<AccountFunction> AccountFunctions { get; set; } = null!;
 
     public virtual DbSet<Hall> Halls { get; set; } = null!;
     public virtual DbSet<HallElement> HallElements { get; set; } = null!;
@@ -142,6 +146,51 @@ public class ApplicationDbContext : DbContext
             .HasOne(ar => ar.Role)
             .WithMany(r => r.AccountRoles)
             .HasForeignKey(ar => ar.RoleId);
+
+        // ================================================================
+        // RBAC (Modules, Functions, RoleFunctions)
+        // ================================================================
+        modelBuilder.Entity<AppModule>().ToTable("app_modules");
+        modelBuilder.Entity<AppFunction>().ToTable("app_functions");
+        modelBuilder.Entity<RoleFunction>().ToTable("role_functions");
+
+        modelBuilder.Entity<RoleFunction>()
+            .HasKey(rf => new { rf.RoleId, rf.FunctionId });
+
+        modelBuilder.Entity<RoleFunction>()
+            .HasOne(rf => rf.Role)
+            .WithMany(r => r.RoleFunctions)
+            .HasForeignKey(rf => rf.RoleId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RoleFunction>()
+            .HasOne(rf => rf.Function)
+            .WithMany(f => f.RoleFunctions)
+            .HasForeignKey(rf => rf.FunctionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<AccountFunction>().ToTable("account_functions");
+
+        modelBuilder.Entity<AccountFunction>()
+            .HasKey(af => new { af.AccountId, af.FunctionId });
+
+        modelBuilder.Entity<AccountFunction>()
+            .HasOne(af => af.Account)
+            .WithMany(a => a.AccountFunctions)
+            .HasForeignKey(af => af.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<AccountFunction>()
+            .HasOne(af => af.Function)
+            .WithMany(f => f.AccountFunctions)
+            .HasForeignKey(af => af.FunctionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<AppFunction>()
+            .HasOne(f => f.Module)
+            .WithMany(m => m.Functions)
+            .HasForeignKey(f => f.ModuleId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // ================================================================
         // UNIQUE INDEXES

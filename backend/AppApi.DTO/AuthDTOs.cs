@@ -48,3 +48,25 @@ public class AccountResponse
     public List<string> Roles { get; set; } = new();
     public DateTime CreatedAt { get; set; }
 }
+
+public class UpdateProfileRequest
+{
+    public string FullName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? CurrentPassword { get; set; }
+    public string? NewPassword { get; set; }
+}
+
+public class ForgotPasswordRequest
+{
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+}
+
+public class ResetPasswordRequest
+{
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string OtpCode { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
+}

@@ -26,7 +26,10 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role != null ? src.Role.Name : string.Empty));
 
         // Hall
-        CreateMap<Hall, HallResponse>();
+        CreateMap<Hall, HallResponse>()
+            .ForMember(dest => dest.ElementCount, opt => opt.MapFrom(src => src.HallElements.Count))
+            .ForMember(dest => dest.ChairCount, opt => opt.MapFrom(src => src.HallElements.Count(e => e.ElementType == "chair")))
+            .ForMember(dest => dest.EventCount, opt => opt.MapFrom(src => src.Events.Count));
         CreateMap<CreateHallRequest, Hall>();
         CreateMap<UpdateHallRequest, Hall>();
 

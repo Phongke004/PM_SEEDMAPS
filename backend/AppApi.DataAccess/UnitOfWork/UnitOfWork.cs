@@ -13,6 +13,11 @@ public class UnitOfWork : IUnitOfWork
     private IGenericRepository<AccountRole>? _accountRoles;
     private IGenericRepository<ApiRoleMapping>? _apiRoleMappings;
 
+    private IGenericRepository<AppModule>? _modules;
+    private IGenericRepository<AppFunction>? _functions;
+    private IGenericRepository<RoleFunction>? _roleFunctions;
+    private IGenericRepository<AccountFunction>? _accountFunctions;
+
     private IGenericRepository<Hall>? _halls;
     private IGenericRepository<HallElement>? _hallElements;
     private IGenericRepository<AppEvent>? _events;
@@ -28,6 +33,11 @@ public class UnitOfWork : IUnitOfWork
     public IGenericRepository<Role> Roles => _roles ??= new GenericRepository<Role>(_context);
     public IGenericRepository<AccountRole> AccountRoles => _accountRoles ??= new GenericRepository<AccountRole>(_context);
     public IGenericRepository<ApiRoleMapping> ApiRoleMappings => _apiRoleMappings ??= new GenericRepository<ApiRoleMapping>(_context);
+
+    public IGenericRepository<AppModule> Modules => _modules ??= new GenericRepository<AppModule>(_context);
+    public IGenericRepository<AppFunction> Functions => _functions ??= new GenericRepository<AppFunction>(_context);
+    public IGenericRepository<RoleFunction> RoleFunctions => _roleFunctions ??= new GenericRepository<RoleFunction>(_context);
+    public IGenericRepository<AccountFunction> AccountFunctions => _accountFunctions ??= new GenericRepository<AccountFunction>(_context);
 
     public IGenericRepository<Hall> Halls => _halls ??= new GenericRepository<Hall>(_context);
     public IGenericRepository<HallElement> HallElements => _hallElements ??= new GenericRepository<HallElement>(_context);

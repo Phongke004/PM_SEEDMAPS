@@ -186,6 +186,79 @@ public class AuthService : IAuthService
         return true;
     }
 
+    public async Task<bool> UpdateProfileAsync(Guid accountId, UpdateProfileRequest request)
+    {
+        var account = await _uow.Accounts.GetByIdAsync(accountId);
+        if (account == null) return false;
+
+        if (!string.IsNullOrEmpty(request.FullName))
+            account.FullName = request.FullName;
+        
+        if (request.Email != null) // allowing empty email clear
+            account.Email = request.Email;
+
+        if (!string.IsNullOrEmpty(request.NewPassword))
+        {
+            if (string.IsNullOrEmpty(request.CurrentPassword) || !BCrypt.Net.BCrypt.Verify(request.CurrentPassword, account.PasswordHash))
+            {
+                throw new InvalidOperationException("Mật khẩu hiện tại không đúng.");
+            }
+            account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        }
+
+        await _uow.CompleteAsync();
+        return true;
+    }
+
+    // In-memory OTP store for demo purposes: Key = username, Value = (otp, expiry, email)
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string Otp, DateTime Expiry, string Email)> _otpCache = new();
+
+    public async Task<string?> ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        var account = await _uow.Accounts.Query().FirstOrDefaultAsync(a => a.Username == request.Username && a.Email == request.Email);
+        if (account == null) return null;
+
+        // Sinh mã OTP 6 số
+        var otp = new Random().Next(100000, 999999).ToString();
+        
+        // Lưu vào cache (hết hạn sau 5 phút)
+        _otpCache[request.Username] = (otp, DateTime.UtcNow.AddMinutes(5), request.Email);
+
+        // Trong thực tế, ở đây sẽ gửi email chứa OTP cho user.
+        // Để demo/test, chúng ta trả về mã OTP (hoặc mock) qua API response.
+        return otp;
+    }
+
+    public async Task<bool> ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        if (!_otpCache.TryGetValue(request.Username, out var otpData))
+        {
+            throw new InvalidOperationException("Không tìm thấy yêu cầu đặt lại mật khẩu hoặc mã OTP đã hết hạn.");
+        }
+
+        if (otpData.Expiry < DateTime.UtcNow)
+        {
+            _otpCache.TryRemove(request.Username, out _);
+            throw new InvalidOperationException("Mã OTP đã hết hạn.");
+        }
+
+        if (otpData.Email != request.Email || otpData.Otp != request.OtpCode)
+        {
+            throw new InvalidOperationException("Mã xác nhận không chính xác.");
+        }
+
+        var account = await _uow.Accounts.Query().FirstOrDefaultAsync(a => a.Username == request.Username && a.Email == request.Email);
+        if (account == null) return false;
+
+        account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        await _uow.CompleteAsync();
+
+        // Xóa OTP khỏi cache sau khi dùng
+        _otpCache.TryRemove(request.Username, out _);
+        
+        return true;
+    }
+
     private (string token, DateTime expiresAt) GenerateJwtToken(Account account, List<string> roles)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));

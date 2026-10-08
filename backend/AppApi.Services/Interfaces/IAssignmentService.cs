@@ -6,4 +6,5 @@ public interface IAssignmentService
     Task<AppApi.DTO.Assignments.AssignmentResponse> AssignSeatAsync(AppApi.DTO.Assignments.AssignSeatRequest request);
     Task<bool> UnassignSeatAsync(Guid eventId, Guid seatId);
     Task<bool> ClearAllAssignmentsAsync(Guid eventId);
+    Task<int> AutoAssignAsync(Guid eventId, string mode);
 }

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase, type AppEvent, type Attendee } from '@/lib/supabase';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { type AppEvent, type Attendee } from '@/lib/supabase';
+import { dataService } from '@/lib/dataService';
 import { PageHeader, LoadingSpinner, ErrorBanner } from '@/components/PageHeader';
 import { Modal } from '@/components/Modal';
 import { EmptyState } from '@/components/EmptyState';
@@ -10,8 +11,12 @@ import {
   Trash2,
   Search,
   Upload,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/Confirm';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending: { label: 'Chưa bố trí', color: 'bg-gray-100 text-gray-600' },
@@ -22,6 +27,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 
 export function AttendeesPage() {
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [attendees, setAttendees] = useState<Attendee[]>([]);
@@ -41,10 +47,11 @@ export function AttendeesPage() {
     position: '',
     degree: '',
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchEvents = useCallback(async () => {
-    const { data } = await supabase.from('events').select('*').order('event_date', { ascending: false });
-    const eventsData = (data as AppEvent[]) || [];
+    const data = await dataService.getEvents();
+    const eventsData = data || [];
     setEvents(eventsData);
     if (eventsData.length > 0 && !selectedEventId) {
       setSelectedEventId(eventsData[0].id);
@@ -58,16 +65,11 @@ export function AttendeesPage() {
       return;
     }
     setLoading(true);
-    const { data, error: err } = await supabase
-      .from('attendees')
-      .select('*')
-      .eq('event_id', selectedEventId)
-      .order('created_at', { ascending: false });
-
-    if (err) {
+    try {
+      const data = await dataService.getAttendees(selectedEventId);
+      setAttendees(data || []);
+    } catch (err: any) {
       setError(err.message);
-    } else {
-      setAttendees((data as Attendee[]) || []);
     }
     setLoading(false);
   }, [selectedEventId]);
@@ -118,14 +120,16 @@ export function AttendeesPage() {
       degree: form.degree.trim(),
     };
 
-    if (editingAttendee) {
-      const { error: err } = await supabase.from('attendees').update(payload).eq('id', editingAttendee.id);
-      if (err) setError(err.message);
-      else showToast('Đã cập nhật người tham dự thành công', 'success');
-    } else {
-      const { error: err } = await supabase.from('attendees').insert(payload);
-      if (err) setError(err.message);
-      else showToast('Đã thêm người tham dự thành công', 'success');
+    try {
+      if (editingAttendee) {
+        await dataService.updateAttendee(editingAttendee.id, payload);
+        showToast('Đã cập nhật người tham dự thành công', 'success');
+      } else {
+        await dataService.createAttendee(payload);
+        showToast('Đã thêm người tham dự thành công', 'success');
+      }
+    } catch (err: any) {
+      setError(err.message);
     }
 
     setSaving(false);
@@ -136,52 +140,104 @@ export function AttendeesPage() {
   };
 
   const handleDelete = async (att: Attendee) => {
-    if (!confirm(`Xóa "${att.full_name}" khỏi danh sách?`)) return;
-    const { error: err } = await supabase.from('attendees').delete().eq('id', att.id);
-    if (err) {
+    const confirmed = await confirm({
+      title: 'Xóa người tham dự',
+      message: `Xóa "${att.full_name}" khỏi danh sách?`,
+      danger: true,
+      confirmText: 'Xóa',
+    });
+    if (!confirmed) return;
+    try {
+      await dataService.deleteAttendee(att.id);
+      showToast('Đã xóa người tham dự thành công', 'success');
+      fetchAttendees();
+    } catch (err: any) {
       setError(err.message);
       showToast('Không thể xóa: ' + err.message, 'error');
-      return;
     }
-    showToast('Đã xóa người tham dự thành công', 'success');
-    fetchAttendees();
   };
 
-  const handleBulkImport = () => {
-    const text = prompt(
-      'Dán danh sách người tham dự (mỗi dòng 1 người).\nĐịnh dạng: Tên, Khoa, SĐT, Email, Quân hàm, Chức vụ, Học vị\nVD: Nguyễn Văn A, Khoa Tim mạch, 0901234567, a@bv.vn, GS.TS, Giám đốc, Tiến sĩ'
-    );
-    if (!text || !selectedEventId) return;
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      ['Họ tên', 'Khoa/Phòng', 'SĐT', 'Email', 'Quân hàm', 'Chức vụ', 'Học vị', 'Ghi chú'],
+      ['Nguyễn Văn A', 'Khoa Tim mạch', '0901234567', 'nguyenvana@bv.vn', 'GS.TS', 'Giám đốc', 'Tiến sĩ', 'Khách VIP'],
+      ['Trần Thị B', 'Khoa Nội', '0987654321', 'tranthib@bv.vn', 'ThS.BS', 'Trưởng khoa', 'Thạc sĩ', '']
+    ];
 
-    const lines = text.trim().split('\n');
-    const rows = lines
-      .map((line) => {
-        const parts = line.split(',').map((p) => p.trim());
-        return {
-          event_id: selectedEventId,
-          full_name: parts[0] || '',
-          department: parts[1] || '',
-          phone: parts[2] || '',
-          email: parts[3] || '',
-          notes: '',
-          status: 'pending',
-          title: parts[4] || '',
-          position: parts[5] || '',
-          degree: parts[6] || '',
-        };
-      })
-      .filter((r) => r.full_name);
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    
+    // Auto size columns
+    const wscols = [
+      {wch: 25}, // Họ tên
+      {wch: 20}, // Khoa/Phòng
+      {wch: 15}, // SĐT
+      {wch: 25}, // Email
+      {wch: 15}, // Quân hàm
+      {wch: 20}, // Chức vụ
+      {wch: 15}, // Học vị
+      {wch: 25}, // Ghi chú
+    ];
+    ws['!cols'] = wscols;
 
-    if (rows.length === 0) return;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Danh_sach_nguoi_tham_du");
+    XLSX.writeFile(wb, "Template_Nguoi_Tham_Du.xlsx");
+  };
 
-    supabase.from('attendees').insert(rows).then(({ error: err }) => {
-      if (err) {
-        showToast('Nhập nhanh thất bại: ' + err.message, 'error');
-      } else {
-        showToast(`Đã nhập ${rows.length} người tham dự thành công`, 'success');
-        fetchAttendees();
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedEventId) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        
+        // Convert to array of arrays, skipping header row if it exists
+        const data = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 });
+        
+        if (data.length <= 1) {
+          showToast('File không có dữ liệu', 'error');
+          return;
+        }
+
+        // Assuming first row is header
+        const rows = data.slice(1).map((parts: any[]) => {
+          return {
+            event_id: selectedEventId,
+            full_name: parts[0] ? String(parts[0]).trim() : '',
+            department: parts[1] ? String(parts[1]).trim() : '',
+            phone: parts[2] ? String(parts[2]).trim() : '',
+            email: parts[3] ? String(parts[3]).trim() : '',
+            title: parts[4] ? String(parts[4]).trim() : '',
+            position: parts[5] ? String(parts[5]).trim() : '',
+            degree: parts[6] ? String(parts[6]).trim() : '',
+            notes: parts[7] ? String(parts[7]).trim() : '',
+            status: 'pending'
+          };
+        }).filter((r) => r.full_name);
+
+        if (rows.length === 0) {
+          showToast('Không tìm thấy dòng dữ liệu hợp lệ nào', 'error');
+          return;
+        }
+
+        dataService.importAttendees(selectedEventId, rows).then(() => {
+          showToast(`Đã nhập ${rows.length} người tham dự thành công`, 'success');
+          fetchAttendees();
+        }).catch(err => {
+          showToast('Nhập nhanh thất bại: ' + err.message, 'error');
+        });
+      } catch (error: any) {
+        showToast('Lỗi khi đọc file Excel: ' + error.message, 'error');
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
-    });
+    };
+    reader.readAsBinaryString(file);
   };
 
   const filtered = attendees.filter(
@@ -200,14 +256,24 @@ export function AttendeesPage() {
         title="Người tham dự"
         subtitle="Quản lý danh sách người tham dự sự kiện"
         actions={
-          <>
-            <button className="btn-secondary" onClick={handleBulkImport} disabled={!selectedEventId}>
-              <Upload size={18} /> Nhập nhanh
+          <div className="flex flex-wrap items-center gap-2">
+            <input 
+              type="file" 
+              accept=".xlsx, .xls" 
+              className="hidden" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+            />
+            <button className="btn-secondary" onClick={handleDownloadTemplate}>
+              <Download size={18} /> Tải file mẫu
+            </button>
+            <button className="btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={!selectedEventId}>
+              <FileSpreadsheet size={18} /> Nhập từ Excel
             </button>
             <button className="btn-primary" onClick={openCreate} disabled={!selectedEventId}>
               <Plus size={18} /> Thêm người
             </button>
-          </>
+          </div>
         }
       />
 

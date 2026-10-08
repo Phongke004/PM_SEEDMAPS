@@ -90,6 +90,21 @@ namespace AppApi.DataAccess.Migrations
                     b.ToTable("Accounts");
                 });
 
+            modelBuilder.Entity("AppApi.Entities.Models.AccountFunction", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FunctionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("AccountId", "FunctionId");
+
+                    b.HasIndex("FunctionId");
+
+                    b.ToTable("account_functions", (string)null);
+                });
+
             modelBuilder.Entity("AppApi.Entities.Models.AccountRole", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -198,6 +213,85 @@ namespace AppApi.DataAccess.Migrations
                     b.HasIndex("HallId");
 
                     b.ToTable("app_events", (string)null);
+                });
+
+            modelBuilder.Entity("AppApi.Entities.Models.AppFunction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("ModuleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModuleId");
+
+                    b.ToTable("app_functions", (string)null);
+                });
+
+            modelBuilder.Entity("AppApi.Entities.Models.AppModule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("app_modules", (string)null);
                 });
 
             modelBuilder.Entity("AppApi.Entities.Models.Assignment", b =>
@@ -438,6 +532,40 @@ namespace AppApi.DataAccess.Migrations
                     b.ToTable("Roles");
                 });
 
+            modelBuilder.Entity("AppApi.Entities.Models.RoleFunction", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FunctionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("RoleId", "FunctionId");
+
+                    b.HasIndex("FunctionId");
+
+                    b.ToTable("role_functions", (string)null);
+                });
+
+            modelBuilder.Entity("AppApi.Entities.Models.AccountFunction", b =>
+                {
+                    b.HasOne("AppApi.Entities.Models.Account", "Account")
+                        .WithMany("AccountFunctions")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AppApi.Entities.Models.AppFunction", "Function")
+                        .WithMany("AccountFunctions")
+                        .HasForeignKey("FunctionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Function");
+                });
+
             modelBuilder.Entity("AppApi.Entities.Models.AccountRole", b =>
                 {
                     b.HasOne("AppApi.Entities.Models.Account", "Account")
@@ -477,6 +605,17 @@ namespace AppApi.DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Hall");
+                });
+
+            modelBuilder.Entity("AppApi.Entities.Models.AppFunction", b =>
+                {
+                    b.HasOne("AppApi.Entities.Models.AppModule", "Module")
+                        .WithMany("Functions")
+                        .HasForeignKey("ModuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Module");
                 });
 
             modelBuilder.Entity("AppApi.Entities.Models.Assignment", b =>
@@ -527,8 +666,29 @@ namespace AppApi.DataAccess.Migrations
                     b.Navigation("Hall");
                 });
 
+            modelBuilder.Entity("AppApi.Entities.Models.RoleFunction", b =>
+                {
+                    b.HasOne("AppApi.Entities.Models.AppFunction", "Function")
+                        .WithMany("RoleFunctions")
+                        .HasForeignKey("FunctionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AppApi.Entities.Models.Role", "Role")
+                        .WithMany("RoleFunctions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Function");
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("AppApi.Entities.Models.Account", b =>
                 {
+                    b.Navigation("AccountFunctions");
+
                     b.Navigation("AccountRoles");
                 });
 
@@ -537,6 +697,18 @@ namespace AppApi.DataAccess.Migrations
                     b.Navigation("Assignments");
 
                     b.Navigation("Attendees");
+                });
+
+            modelBuilder.Entity("AppApi.Entities.Models.AppFunction", b =>
+                {
+                    b.Navigation("AccountFunctions");
+
+                    b.Navigation("RoleFunctions");
+                });
+
+            modelBuilder.Entity("AppApi.Entities.Models.AppModule", b =>
+                {
+                    b.Navigation("Functions");
                 });
 
             modelBuilder.Entity("AppApi.Entities.Models.Attendee", b =>
@@ -561,6 +733,8 @@ namespace AppApi.DataAccess.Migrations
                     b.Navigation("AccountRoles");
 
                     b.Navigation("ApiRoleMappings");
+
+                    b.Navigation("RoleFunctions");
                 });
 #pragma warning restore 612, 618
         }

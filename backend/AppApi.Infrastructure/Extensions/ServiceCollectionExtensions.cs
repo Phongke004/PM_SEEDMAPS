@@ -35,7 +35,7 @@ public static class ServiceCollectionExtensions
     {
         var connectionString = configuration.GetConnectionString(connectionName) 
                                ?? configuration["ConnectionStrings:WebApiConnection"]
-                               ?? "Server=108.108.108.8;Database=SeatMapDB;User Id=sa;Password=bv108@bv108;TrustServerCertificate=True;";
+                               ?? "Server=(localdb)\\MSSQLLocalDB;Database=SeatMapDB;User Id=phongdangxuan;Password=Phong004@;TrustServerCertificate=True;";
 
         services.AddDbContext<TContext>(options =>
         {
