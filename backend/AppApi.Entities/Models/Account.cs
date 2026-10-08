@@ -18,4 +18,5 @@ public class Account : AuditEntity<Guid>
     public DateTime? RefreshTokenExpiryTime { get; set; }
 
     public virtual ICollection<AccountRole> AccountRoles { get; set; } = new List<AccountRole>();
+    public virtual ICollection<AccountFunction> AccountFunctions { get; set; } = new List<AccountFunction>();
 }

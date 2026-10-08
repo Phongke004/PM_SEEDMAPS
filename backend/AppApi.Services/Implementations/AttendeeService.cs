@@ -37,6 +37,18 @@ public class AttendeeService : IAttendeeService
         return _mapper.Map<AttendeeResponse>(attendee);
     }
 
+    public async Task<bool> ImportBatchAsync(Guid eventId, IEnumerable<CreateAttendeeRequest> requests)
+    {
+        var attendees = _mapper.Map<IEnumerable<Attendee>>(requests);
+        foreach (var att in attendees)
+        {
+            att.EventId = eventId;
+        }
+        await _uow.Attendees.AddRangeAsync(attendees);
+        await _uow.CompleteAsync();
+        return true;
+    }
+
     public async Task<bool> UpdateAsync(Guid id, UpdateAttendeeRequest request)
     {
         var attendee = await _uow.Attendees.GetByIdAsync(id);

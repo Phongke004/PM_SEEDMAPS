@@ -21,11 +21,11 @@ export function useToast() {
   return ctx;
 }
 
-const TOAST_STYLES: Record<ToastType, { bg: string; border: string; icon: typeof CheckCircle2; iconColor: string }> = {
-  success: { bg: 'bg-green-50', border: 'border-green-200', icon: CheckCircle2, iconColor: 'text-green-500' },
-  error: { bg: 'bg-red-50', border: 'border-red-200', icon: XCircle, iconColor: 'text-red-500' },
-  warning: { bg: 'bg-amber-50', border: 'border-amber-200', icon: AlertCircle, iconColor: 'text-amber-500' },
-  info: { bg: 'bg-blue-50', border: 'border-blue-200', icon: Info, iconColor: 'text-blue-500' },
+const TOAST_STYLES: Record<ToastType, { icon: typeof CheckCircle2; iconColor: string }> = {
+  success: { icon: CheckCircle2, iconColor: 'text-emerald-400' },
+  error: { icon: XCircle, iconColor: 'text-rose-400' },
+  warning: { icon: AlertCircle, iconColor: 'text-amber-400' },
+  info: { icon: Info, iconColor: 'text-blue-400' },
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -36,7 +36,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => [...prev, { id, type, message }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    }, 4000);
   }, []);
 
   const dismiss = (id: string) => {
@@ -46,20 +46,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3 max-w-[360px] w-full pointer-events-none">
         {toasts.map((toast) => {
           const style = TOAST_STYLES[toast.type];
           const Icon = style.icon;
           return (
             <div
               key={toast.id}
-              className={`flex items-start gap-3 px-4 py-3 rounded-xl border shadow-lg ${style.bg} ${style.border} animate-slide-up pointer-events-auto`}
+              className="group flex items-start gap-3 px-4 py-3.5 bg-gray-900 border border-gray-800/60 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-xl animate-slide-up pointer-events-auto transition-all hover:border-gray-700"
             >
-              <Icon size={20} className={`flex-shrink-0 mt-0.5 ${style.iconColor}`} />
-              <p className="text-sm text-gray-700 flex-1 leading-snug">{toast.message}</p>
+              <Icon size={18} className={`flex-shrink-0 mt-0.5 ${style.iconColor}`} />
+              <p className="text-[14px] font-medium text-gray-50 flex-1 leading-relaxed tracking-wide">
+                {toast.message}
+              </p>
               <button
                 onClick={() => dismiss(toast.id)}
-                className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                className="flex-shrink-0 text-gray-500 hover:text-gray-300 transition-colors opacity-0 group-hover:opacity-100 p-0.5"
               >
                 <X size={16} />
               </button>

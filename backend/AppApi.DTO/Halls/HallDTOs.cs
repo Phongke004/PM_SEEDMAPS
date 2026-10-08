@@ -23,6 +23,9 @@ public class HallResponse
     public string? Description { get; set; }
     public int RowCount { get; set; }
     public int ColCount { get; set; }
+    public int ElementCount { get; set; }
+    public int ChairCount { get; set; }
+    public int EventCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

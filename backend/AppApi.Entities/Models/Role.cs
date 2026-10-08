@@ -9,4 +9,5 @@ public class Role : AuditEntity<Guid>
 
     public virtual ICollection<AccountRole> AccountRoles { get; set; } = new List<AccountRole>();
     public virtual ICollection<ApiRoleMapping> ApiRoleMappings { get; set; } = new List<ApiRoleMapping>();
+    public virtual ICollection<RoleFunction> RoleFunctions { get; set; } = new List<RoleFunction>();
 }

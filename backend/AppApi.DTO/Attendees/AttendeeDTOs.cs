@@ -8,6 +8,9 @@ public class CreateAttendeeRequest
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Notes { get; set; }
+    public string? Title { get; set; }
+    public string? Position { get; set; }
+    public string? Degree { get; set; }
     public string Status { get; set; } = "pending";
 }
 
@@ -18,6 +21,9 @@ public class UpdateAttendeeRequest
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Notes { get; set; }
+    public string? Title { get; set; }
+    public string? Position { get; set; }
+    public string? Degree { get; set; }
     public string Status { get; set; } = "pending";
 }
 
@@ -30,6 +36,9 @@ public class AttendeeResponse
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Notes { get; set; }
+    public string? Title { get; set; }
+    public string? Position { get; set; }
+    public string? Degree { get; set; }
     public string Status { get; set; } = "pending";
     public DateTime CreatedAt { get; set; }
 }

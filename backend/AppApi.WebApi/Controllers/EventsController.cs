@@ -107,4 +107,18 @@ public class EventsController : ControllerBase
         var success = await _assignmentService.ClearAllAssignmentsAsync(id);
         return Ok(new { message = "Xóa toàn bộ gán chỗ sự kiện thành công." });
     }
+
+    [HttpPost("{id:guid}/attendees/batch")]
+    public async Task<IActionResult> ImportBatchAttendees(Guid id, [FromBody] List<CreateAttendeeRequest> requests)
+    {
+        var success = await _attendeeService.ImportBatchAsync(id, requests);
+        return Ok(new { message = "Import thành công.", count = requests.Count });
+    }
+
+    [HttpPost("{id:guid}/auto-assign")]
+    public async Task<IActionResult> AutoAssign(Guid id, [FromQuery] string mode = "alphabetical")
+    {
+        var assignedCount = await _assignmentService.AutoAssignAsync(id, mode);
+        return Ok(new { message = "Tự động sắp xếp thành công.", assigned_count = assignedCount });
+    }
 }

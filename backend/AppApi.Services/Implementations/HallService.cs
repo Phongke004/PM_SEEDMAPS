@@ -21,6 +21,8 @@ public class HallService : IHallService
     public async Task<IEnumerable<HallResponse>> GetAllAsync()
     {
         var halls = await _uow.Halls.Query()
+            .Include(h => h.HallElements)
+            .Include(h => h.Events)
             .OrderByDescending(h => h.CreatedAt)
             .ToListAsync();
         return _mapper.Map<IEnumerable<HallResponse>>(halls);
@@ -38,26 +40,7 @@ public class HallService : IHallService
         var hall = _mapper.Map<Hall>(request);
         await _uow.Halls.AddAsync(hall);
 
-        // Sinh tự động danh sách ghế theo số hàng & số cột
-        for (int r = 0; r < hall.RowCount; r++)
-        {
-            var rowLetter = ((char)('A' + r)).ToString();
-            for (int c = 0; c < hall.ColCount; c++)
-            {
-                var element = new HallElement
-                {
-                    Hall = hall,
-                    ElementType = "chair",
-                    Label = $"{rowLetter}{c + 1}",
-                    SeatType = "delegate",
-                    X = c * 50,
-                    Y = r * 50,
-                    CreatedAt = DateTime.UtcNow
-
-                };
-                hall.HallElements.Add(element);
-            }
-        }
+        // Frontend sẽ tự động tạo sơ đồ ghế thông qua BatchUpdateSeatsAsync để tính toán toạ độ trung tâm chính xác.
 
         await _uow.CompleteAsync();
         return _mapper.Map<HallResponse>(hall);

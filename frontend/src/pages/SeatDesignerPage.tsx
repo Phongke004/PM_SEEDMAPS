@@ -3,6 +3,7 @@ import { type Hall, type HallElement } from '@/lib/supabase';
 import { dataService } from '@/lib/dataService';
 import { LoadingSpinner, ErrorBanner } from '@/components/PageHeader';
 import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/Confirm';
 import {
   ArrowLeft,
   Save,
@@ -52,6 +53,7 @@ const ELEMENT_DEFAULTS: Record<string, { width: number; height: number; color: s
 
 export function SeatDesignerPage({ hallId, onBack }: SeatDesignerProps) {
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [hall, setHall] = useState<Hall | null>(null);
   const [elements, setElements] = useState<HallElement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -543,7 +545,13 @@ export function SeatDesignerPage({ hallId, onBack }: SeatDesignerProps) {
   };
 
   const handleClearAll = async () => {
-    if (!confirm('Xóa toàn bộ sơ đồ? Mọi phần tử sẽ bị xóa.')) return;
+    const confirmed = await confirm({
+      title: 'Xóa toàn bộ sơ đồ',
+      message: 'Xóa toàn bộ sơ đồ? Mọi phần tử sẽ bị xóa.',
+      danger: true,
+      confirmText: 'Xóa',
+    });
+    if (!confirmed) return;
     pushHistory();
     setSaving(true);
     await dataService.saveBatchElements(hallId, []);

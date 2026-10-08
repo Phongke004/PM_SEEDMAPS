@@ -11,4 +11,7 @@ public interface IAuthService
     Task<AccountResponse?> GetCurrentAccountAsync(Guid accountId);
     Task<IEnumerable<AccountResponse>> GetAllAccountsAsync();
     Task<bool> LockAccountAsync(Guid accountId, bool isLock);
+    Task<bool> UpdateProfileAsync(Guid accountId, UpdateProfileRequest request);
+    Task<string?> ForgotPasswordAsync(ForgotPasswordRequest request);
+    Task<bool> ResetPasswordAsync(ResetPasswordRequest request);
 }

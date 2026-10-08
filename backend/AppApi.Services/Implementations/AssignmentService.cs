@@ -22,7 +22,7 @@ public class AssignmentService : IAssignmentService
     {
         var assignments = await _uow.Assignments.Query()
             .Include(a => a.Attendee)
-            .Where(a => a.EventId == eventId && !a.IsDeleted)
+            .Where(a => a.EventId == eventId)
             .ToListAsync();
 
         return _mapper.Map<IEnumerable<AssignmentResponse>>(assignments);
@@ -114,5 +114,53 @@ public class AssignmentService : IAssignmentService
         _uow.Assignments.RemoveRange(assignments);
         await _uow.CompleteAsync();
         return true;
+    }
+
+    public async Task<int> AutoAssignAsync(Guid eventId, string mode)
+    {
+        var ev = await _uow.Events.GetByIdAsync(eventId);
+        if (ev == null) return 0;
+
+        var attendees = await _uow.Attendees.Query()
+            .Where(a => a.EventId == eventId && a.Status == "pending")
+            .OrderBy(a => a.FullName)
+            .ToListAsync();
+
+        if (!attendees.Any()) return 0;
+
+        var assignedSeats = await _uow.Assignments.Query()
+            .Where(a => a.EventId == eventId)
+            .Select(a => a.ElementId)
+            .ToListAsync();
+
+        // Need access to HallElements (Seats). Using generic repository if Seats not in IUnitOfWork.
+        // Assuming _uow has HallElements
+        var availableSeats = await _uow.HallElements.Query()
+            .Where(e => e.HallId == ev.HallId && e.ElementType == "chair" && !assignedSeats.Contains(e.Id))
+            .OrderBy(e => e.Y).ThenBy(e => e.X)
+            .ToListAsync();
+
+        int assignedCount = 0;
+        foreach (var attendee in attendees)
+        {
+            if (assignedCount >= availableSeats.Count) break;
+
+            var seat = availableSeats[assignedCount];
+            var assignment = new Assignment
+            {
+                EventId = eventId,
+                ElementId = seat.Id,
+                AttendeeId = attendee.Id,
+                Status = "confirmed"
+            };
+            
+            attendee.Status = "assigned";
+            await _uow.Assignments.AddAsync(assignment);
+            
+            assignedCount++;
+        }
+
+        await _uow.CompleteAsync();
+        return assignedCount;
     }
 }

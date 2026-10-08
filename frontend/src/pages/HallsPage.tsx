@@ -5,6 +5,7 @@ import { PageHeader, LoadingSpinner, ErrorBanner } from '@/components/PageHeader
 import { Modal } from '@/components/Modal';
 import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/Confirm';
 import {
   Plus,
   Building2,
@@ -27,6 +28,7 @@ type HallsPageProps = {
 
 export function HallsPage({ onOpenDesigner }: HallsPageProps) {
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [halls, setHalls] = useState<HallWithStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,9 +53,9 @@ export function HallsPage({ onOpenDesigner }: HallsPageProps) {
       const hallsData = await dataService.getHalls();
       const hallsWithStats: HallWithStats[] = hallsData.map((h: any) => ({
         ...h,
-        element_count: h.element_count ?? 0,
-        chair_count: h.chair_count ?? 0,
-        event_count: h.event_count ?? 0,
+        element_count: h.element_count ?? h.elementCount ?? 0,
+        chair_count: h.chair_count ?? h.chairCount ?? 0,
+        event_count: h.event_count ?? h.eventCount ?? 0,
       }));
 
       setHalls(hallsWithStats);
@@ -160,9 +162,12 @@ export function HallsPage({ onOpenDesigner }: HallsPageProps) {
   };
 
   const handleDelete = async (hall: Hall) => {
-    const confirmed = confirm(
-      `Xóa hội trường "${hall.name}"?\n\nTất cả phần tử sơ đồ và sự kiện liên quan có thể bị ảnh hưởng.`
-    );
+    const confirmed = await confirm({
+      title: 'Xóa hội trường',
+      message: `Xóa hội trường "${hall.name}"?\n\nTất cả phần tử sơ đồ và sự kiện liên quan có thể bị ảnh hưởng.`,
+      danger: true,
+      confirmText: 'Xóa',
+    });
     if (!confirmed) return;
 
     setError('');

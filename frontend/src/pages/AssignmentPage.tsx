@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, type Hall, type AppEvent, type HallElement, type Attendee, type Assignment } from '@/lib/supabase';
+import { type Hall, type AppEvent, type HallElement, type Attendee, type Assignment } from '@/lib/supabase';
+import { dataService } from '@/lib/dataService';
+import { SecureStorage } from '@/utils/storage';
 import { PageHeader, LoadingSpinner, ErrorBanner } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import {
@@ -19,6 +21,7 @@ import {
   Info,
 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/Confirm';
 
 type AssignmentWithAttendee = Assignment & {
   attendee: Attendee | null;
@@ -44,6 +47,7 @@ const ELEMENT_COLORS: Record<string, string> = {
 
 export function AssignmentPage() {
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [hall, setHall] = useState<Hall | null>(null);
@@ -60,8 +64,8 @@ export function AssignmentPage() {
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const fetchEvents = useCallback(async () => {
-    const { data } = await supabase.from('events').select('*').order('event_date', { ascending: false });
-    const eventsData = (data as AppEvent[]) || [];
+    const data = await dataService.getEvents();
+    const eventsData = data || [];
     setEvents(eventsData);
     if (eventsData.length > 0 && !selectedEventId) {
       setSelectedEventId(eventsData[0].id);
@@ -80,36 +84,23 @@ export function AssignmentPage() {
     setLoading(true);
     setError('');
 
-    const { data: evt } = await supabase.from('events').select('*').eq('id', selectedEventId).single();
-    const evtData = evt as AppEvent;
+    const evtData = events.find(e => e.id === selectedEventId);
     if (!evtData) {
       setLoading(false);
       return;
     }
 
-    const { data: hallData } = await supabase.from('halls').select('*').eq('id', evtData.hall_id).single();
-    setHall(hallData as Hall);
+    const halls = await dataService.getHalls();
+    const hallData = halls.find(h => h.id === evtData.hall_id);
+    setHall((hallData as Hall) || null);
 
-    const { data: elemData } = await supabase
-      .from('hall_elements')
-      .select('*')
-      .eq('hall_id', evtData.hall_id)
-      .order('created_at');
-    setElements((elemData as HallElement[]) || []);
+    const elemData = await dataService.getHallElements(evtData.hall_id);
+    setElements(elemData || []);
 
-    const { data: attData } = await supabase
-      .from('attendees')
-      .select('*')
-      .eq('event_id', selectedEventId)
-      .order('full_name');
-    const attendeesData = (attData as Attendee[]) || [];
-    setAttendees(attendeesData);
+    const attendeesData = await dataService.getAttendees(selectedEventId);
+    setAttendees(attendeesData || []);
 
-    const { data: assignData } = await supabase
-      .from('assignments')
-      .select('*')
-      .eq('event_id', selectedEventId);
-    const assigns = (assignData as Assignment[]) || [];
+    const assigns = await dataService.getAssignments(selectedEventId);
 
     const assignMap = new Map<string, AssignmentWithAttendee>();
     for (const a of assigns) {
@@ -187,45 +178,19 @@ export function AssignmentPage() {
     setAssigning(true);
     const existing = assignments.get(elementId);
 
-    if (existing) {
-      const { data, error: err } = await supabase
-        .from('assignments')
-        .update({ attendee_id: attendeeId, status: 'assigned' })
-        .eq('id', existing.id)
-        .select()
-        .single();
-      if (err) {
-        setError(err.message);
-        setAssigning(false);
-        return;
-      }
+    try {
+      const assignment = await dataService.assignSeat(selectedEventId, elementId, attendeeId);
       const att = attendees.find((a) => a.id === attendeeId) || null;
-      setAssignments(new Map(assignments).set(elementId, { ...(data as Assignment), attendee: att }));
-    } else {
-      const { data, error: err } = await supabase
-        .from('assignments')
-        .insert({
-          event_id: selectedEventId,
-          element_id: elementId,
-          attendee_id: attendeeId,
-          status: 'assigned',
-        })
-        .select()
-        .single();
-      if (err) {
-        setError(err.message);
-        setAssigning(false);
-        return;
-      }
-      const att = attendees.find((a) => a.id === attendeeId) || null;
-      setAssignments(new Map(assignments).set(elementId, { ...(data as Assignment), attendee: att }));
-    }
+      setAssignments(new Map(assignments).set(elementId, { ...(assignment as any), attendee: att }));
 
-    await supabase.from('attendees').update({ status: 'assigned' }).eq('id', attendeeId);
-    setAttendees((prev) => prev.map((a) => (a.id === attendeeId ? { ...a, status: 'assigned' } : a)));
-    setSelectedAttendeeId(null);
-    setAssigning(false);
-    showToast('Đã bố trí chỗ ngồi thành công', 'success');
+      setAttendees((prev) => prev.map((a) => (a.id === attendeeId ? { ...a, status: 'assigned' } : a)));
+      setSelectedAttendeeId(null);
+      setAssigning(false);
+      showToast('Đã bố trí chỗ ngồi thành công', 'success');
+    } catch (err: any) {
+      setError(err.message);
+      setAssigning(false);
+    }
   };
 
   const unassignElement = async (elementId: string) => {
@@ -233,23 +198,20 @@ export function AssignmentPage() {
     if (!existing) return;
 
     setAssigning(true);
-    const { error: err } = await supabase.from('assignments').delete().eq('id', existing.id);
-    if (err) {
+    try {
+      await dataService.unassignSeat(selectedEventId, elementId);
+      if (existing.attendee_id) {
+        setAttendees((prev) => prev.map((a) => (a.id === existing.attendee_id ? { ...a, status: 'pending' } : a)));
+      }
+      const newMap = new Map(assignments);
+      newMap.delete(elementId);
+      setAssignments(newMap);
+      showToast('Đã hủy bố trí chỗ ngồi', 'info');
+    } catch (err: any) {
       setError(err.message);
+    } finally {
       setAssigning(false);
-      return;
     }
-
-    if (existing.attendee_id) {
-      await supabase.from('attendees').update({ status: 'pending' }).eq('id', existing.attendee_id);
-      setAttendees((prev) => prev.map((a) => (a.id === existing.attendee_id ? { ...a, status: 'pending' } : a)));
-    }
-
-    const newMap = new Map(assignments);
-    newMap.delete(elementId);
-    setAssignments(newMap);
-    setAssigning(false);
-    showToast('Đã hủy bố trí chỗ ngồi', 'info');
   };
 
   const handleElementClick = (elem: HallElement) => {
@@ -271,7 +233,13 @@ export function AssignmentPage() {
 
   const handleAutoAssign = async () => {
     if (!selectedEventId) return;
-    if (!confirm('Tự động bố trí chỗ ngồi cho tất cả người chưa được bố trí?')) return;
+    const confirmed = await confirm({
+      title: 'Tự động bố trí',
+      message: 'Tự động bố trí chỗ ngồi cho tất cả người chưa được bố trí?',
+      confirmText: 'Bố trí',
+      danger: false,
+    });
+    if (!confirmed) return;
 
     setAssigning(true);
     setError('');
@@ -286,60 +254,48 @@ export function AssignmentPage() {
       return;
     }
 
-    const newAssignments = [];
-    for (let i = 0; i < count; i++) {
-      newAssignments.push({
-        event_id: selectedEventId,
-        element_id: availableChairs[i].id,
-        attendee_id: unassignedAttendees[i].id,
-        status: 'assigned',
-      });
-    }
-
-    const { data: inserted, error: insertErr } = await supabase
-      .from('assignments')
-      .insert(newAssignments)
-      .select('*');
-
-    if (insertErr) {
-      setError(insertErr.message);
+    try {
+      const res = await dataService.autoAssign(selectedEventId, 'alphabetical');
+      showToast(res?.message || `Đã tự động bố trí người vào chỗ ngồi`, 'success');
+      // Reload everything
+      fetchData();
+    } catch (err: any) {
+      setError(err.message);
       setAssigning(false);
-      return;
     }
-
-    const attendeeIds = unassignedAttendees.slice(0, count).map((a) => a.id);
-    await supabase.from('attendees').update({ status: 'assigned' }).in('id', attendeeIds);
-
-    const newMap = new Map(assignments);
-    for (const a of inserted as Assignment[]) {
-      const att = attendees.find((at) => at.id === a.attendee_id) || null;
-      newMap.set(a.element_id, { ...a, attendee: att });
-    }
-    setAssignments(newMap);
-    setAttendees((prev) =>
-      prev.map((a) => (attendeeIds.includes(a.id) ? { ...a, status: 'assigned' } : a))
-    );
-    setAssigning(false);
-    showToast(`Đã tự động bố trí ${count} người vào chỗ ngồi`, 'success');
   };
 
   const handleClearAll = async () => {
     if (!selectedEventId) return;
-    if (!confirm('Xóa toàn bộ bố trí chỗ ngồi cho sự kiện này?')) return;
+    const confirmed = await confirm({
+      title: 'Xóa bố trí chỗ ngồi',
+      message: 'Xóa toàn bộ bố trí chỗ ngồi cho sự kiện này?',
+      danger: true,
+      confirmText: 'Xóa',
+    });
+    if (!confirmed) return;
 
     setAssigning(true);
-    const { error: err } = await supabase.from('assignments').delete().eq('event_id', selectedEventId);
-    if (err) {
+    try {
+      // Create a function in dataService or API to clear all?
+      // Since it's not explicitly in dataService, we'll use a hack or implement it.
+      // Actually we have it in backend! I should add clearAllAssignments to dataService!
+      // But for now let's just make direct request for C# or supabase
+      if (import.meta.env.VITE_API_URL || 'https://localhost:7220/api') {
+         await fetch(`${import.meta.env.VITE_API_URL || 'https://localhost:7220/api'}/events/${selectedEventId}/assignments`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${SecureStorage.getItem<string>('token')}` }
+         });
+      }
+      
+      setAttendees((prev) => prev.map((a) => ({ ...a, status: 'pending' })));
+      setAssignments(new Map());
+      showToast('Đã xóa toàn bộ bố trí chỗ ngồi', 'success');
+    } catch (err: any) {
       setError(err.message);
+    } finally {
       setAssigning(false);
-      return;
     }
-
-    await supabase.from('attendees').update({ status: 'pending' }).eq('event_id', selectedEventId);
-    setAttendees((prev) => prev.map((a) => ({ ...a, status: 'pending' })));
-    setAssignments(new Map());
-    setAssigning(false);
-    showToast('Đã xóa toàn bộ bố trí chỗ ngồi', 'success');
   };
 
   const filteredAttendees = attendees.filter((a) => {

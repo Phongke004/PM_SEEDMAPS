@@ -40,18 +40,36 @@ public class HallElementService : ISeatService
             {
                 elem.Label = item.Label;
                 elem.SeatType = item.SeatType;
+                elem.ElementType = string.IsNullOrEmpty(item.ElementType) ? "chair" : item.ElementType;
+                elem.X = item.X;
+                elem.Y = item.Y;
+                elem.Width = item.Width;
+                elem.Height = item.Height;
+                elem.Rotation = item.Rotation;
+
+                existing.Remove(item.Id.Value);
             }
             else
             {
                 var newElem = new HallElement
                 {
                     HallId = hallId,
-                    ElementType = "chair",
+                    ElementType = string.IsNullOrEmpty(item.ElementType) ? "chair" : item.ElementType,
                     Label = item.Label,
                     SeatType = item.SeatType,
+                    X = item.X,
+                    Y = item.Y,
+                    Width = item.Width,
+                    Height = item.Height,
+                    Rotation = item.Rotation,
                 };
                 await _uow.HallElements.AddAsync(newElem);
             }
+        }
+
+        foreach (var elemToRemove in existing.Values)
+        {
+            _uow.HallElements.Remove(elemToRemove);
         }
 
         await _uow.CompleteAsync();

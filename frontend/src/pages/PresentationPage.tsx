@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase, type Hall, type HallElement, type AppEvent, type Attendee, type Assignment } from '@/lib/supabase';
+import { type Hall, type HallElement, type AppEvent, type Attendee, type Assignment } from '@/lib/supabase';
+import { dataService } from '@/lib/dataService';
 import { LoadingSpinner } from '@/components/PageHeader';
 import {
   Monitor,
@@ -36,8 +37,8 @@ export function PresentationPage() {
 
   useEffect(() => {
     const fetchHalls = async () => {
-      const { data } = await supabase.from('halls').select('*').order('name');
-      setHalls((data as Hall[]) || []);
+      const data = await dataService.getHalls();
+      setHalls(data || []);
       setLoading(false);
     };
     fetchHalls();
@@ -54,14 +55,15 @@ export function PresentationPage() {
     }
     const fetchHall = async () => {
       setLoading(true);
-      const [{ data: hallData }, { data: elemData }] = await Promise.all([
-        supabase.from('halls').select('*').eq('id', selectedHallId).single(),
-        supabase.from('hall_elements').select('*').eq('hall_id', selectedHallId).order('created_at'),
-      ]);
-      setHall(hallData as Hall);
-      setElements((elemData as HallElement[]) || []);
-      const { data: evtData } = await supabase.from('events').select('*').eq('hall_id', selectedHallId).order('event_date', { ascending: false });
-      setEvents((evtData as AppEvent[]) || []);
+      const data = await dataService.getHalls();
+      const hallData = data.find(h => h.id === selectedHallId);
+      const elemData = await dataService.getHallElements(selectedHallId);
+      setHall((hallData as Hall) || null);
+      setElements(elemData || []);
+      
+      const eventsData = await dataService.getEvents();
+      const evtData = eventsData.filter(e => e.hall_id === selectedHallId);
+      setEvents(evtData || []);
       setLoading(false);
     };
     fetchHall();
@@ -73,10 +75,8 @@ export function PresentationPage() {
       return;
     }
     const fetchAssignments = async () => {
-      const { data: attData } = await supabase.from('attendees').select('*').eq('event_id', selectedEventId);
-      const attendees = (attData as Attendee[]) || [];
-      const { data: assignData } = await supabase.from('assignments').select('*').eq('event_id', selectedEventId);
-      const assigns = (assignData as Assignment[]) || [];
+      const attendees = await dataService.getAttendees(selectedEventId);
+      const assigns = await dataService.getAssignments(selectedEventId);
       const m = new Map<string, Attendee>();
       for (const a of assigns) {
         const att = attendees.find((at) => at.id === a.attendee_id);

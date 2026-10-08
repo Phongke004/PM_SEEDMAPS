@@ -9,6 +9,10 @@ public interface IUnitOfWork : IDisposable
     IGenericRepository<Role> Roles { get; }
     IGenericRepository<AccountRole> AccountRoles { get; }
     IGenericRepository<ApiRoleMapping> ApiRoleMappings { get; }
+    IGenericRepository<AppModule> Modules { get; }
+    IGenericRepository<AppFunction> Functions { get; }
+    IGenericRepository<RoleFunction> RoleFunctions { get; }
+    IGenericRepository<AccountFunction> AccountFunctions { get; }
 
     IGenericRepository<Hall> Halls { get; }
     IGenericRepository<HallElement> HallElements { get; }
