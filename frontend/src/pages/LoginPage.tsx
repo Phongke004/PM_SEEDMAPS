@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LogIn, User, Lock, AlertCircle } from 'lucide-react';
 import { apiAuth } from '@/lib/api';
 
@@ -15,6 +15,17 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('savedUsername');
+    const savedPass = localStorage.getItem('savedPassword');
+    if (savedUser && savedPass) {
+      setUsername(savedUser);
+      setPassword(savedPass);
+      setRememberMe(true);
+    }
+  }, []);
 
   // forgotStep: 0 = login, 1 = request otp, 2 = verify otp
   const [forgotStep, setForgotStep] = useState(0);
@@ -72,6 +83,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       try {
         const response = await apiAuth.login({ username, password });
         if (response && response.accessToken) {
+          if (rememberMe) {
+            localStorage.setItem('savedUsername', username);
+            localStorage.setItem('savedPassword', password);
+          } else {
+            localStorage.removeItem('savedUsername');
+            localStorage.removeItem('savedPassword');
+          }
           onLoginSuccess(response.accessToken, response);
         } else {
           setError('Đăng nhập thất bại. Vui lòng thử lại.');
@@ -88,11 +106,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg transform -rotate-6">
-            <LogIn className="w-8 h-8 text-white transform rotate-6" />
+          <div className="w-28 h-28 flex items-center justify-center">
+            <img src="/logo.png" alt="Logo BV 108" className="w-full h-full object-contain" />
           </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
+        <h2 className="mt-4 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
           Chào mừng trở lại
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
@@ -231,6 +249,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     id="remember-me"
                     name="remember-me"
                     type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer"
                   />
                   <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 cursor-pointer">

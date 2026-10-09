@@ -6,7 +6,7 @@ import { Modal } from '@/components/Modal';
 import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/Confirm';
-import { Plus, CalendarDays, Pencil, Trash2, Clock, MapPin, Users } from 'lucide-react';
+import { Plus, CalendarDays, Pencil, Trash2, Clock, MapPin, Users, Search } from 'lucide-react';
 
 type EventWithStats = AppEvent & {
   hall_name: string;
@@ -21,9 +21,15 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   completed: { label: 'Hoàn thành', color: 'bg-green-100 text-green-700' },
 };
 
+import { checkPermission } from '@/utils/permissions';
+
 export function EventsPage() {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  
+  const canCreate = checkPermission('EVENT_CREATE');
+  const canEdit = checkPermission('EVENT_EDIT');
+  const canDelete = checkPermission('EVENT_DELETE');
   const [events, setEvents] = useState<EventWithStats[]>([]);
   const [halls, setHalls] = useState<Hall[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +37,7 @@ export function EventsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -165,17 +172,32 @@ export function EventsPage() {
 
   if (loading && events.length === 0) return <LoadingSpinner label="Đang tải sự kiện..." />;
 
+  const filteredEvents = events.filter(evt => 
+    evt.name.toLowerCase().includes(search.toLowerCase()) ||
+    (evt.description && evt.description.toLowerCase().includes(search.toLowerCase())) ||
+    (evt.hall_name && evt.hall_name.toLowerCase().includes(search.toLowerCase()))
+  );
+
   return (
     <div>
-      <PageHeader
-        title="Sự kiện"
-        subtitle="Quản lý các sự kiện tại hội trường"
-        actions={
-          <button className="btn-primary" onClick={openCreate} disabled={halls.length === 0}>
-            <Plus size={18} /> Thêm sự kiện
-          </button>
-        }
-      />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="relative flex-1 w-full sm:max-w-md">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            className="input pl-10 w-full"
+            placeholder="Tìm kiếm sự kiện..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex-shrink-0">
+          {canCreate && (
+            <button className="btn-primary" onClick={openCreate} disabled={halls.length === 0}>
+              <Plus size={18} /> Thêm sự kiện
+            </button>
+          )}
+        </div>
+      </div>
 
       {error && <ErrorBanner message={error} />}
 
@@ -185,20 +207,22 @@ export function EventsPage() {
           title="Cần tạo hội trường trước"
           description="Vui lòng tạo ít nhất một hội trường trước khi thêm sự kiện"
         />
-      ) : events.length === 0 ? (
+      ) : filteredEvents.length === 0 ? (
         <EmptyState
           icon={<CalendarDays size={32} />}
           title="Chưa có sự kiện"
           description="Tạo sự kiện đầu tiên để bắt đầu quản lý người tham dự và bố trí chỗ ngồi"
           action={
-            <button className="btn-primary" onClick={openCreate}>
-              <Plus size={18} /> Thêm sự kiện
-            </button>
+            canCreate ? (
+              <button className="btn-primary" onClick={openCreate}>
+                <Plus size={18} /> Thêm sự kiện
+              </button>
+            ) : null
           }
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {events.map((evt) => {
+          {filteredEvents.map((evt) => {
             const statusCfg = STATUS_CONFIG[evt.status] || STATUS_CONFIG.planning;
             return (
               <div key={evt.id} className="card p-5 hover:shadow-md transition-all duration-200 group">
@@ -230,16 +254,20 @@ export function EventsPage() {
                 </div>
 
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEdit(evt)} className="btn-secondary flex-1 justify-center text-sm">
-                    <Pencil size={14} /> Sửa
-                  </button>
-                  <button
-                    onClick={() => handleDelete(evt)}
-                    className="btn-danger text-sm"
-                    title="Xóa"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {canEdit && (
+                    <button onClick={() => openEdit(evt)} className="btn-secondary flex-1 justify-center text-sm">
+                      <Pencil size={14} /> Sửa
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={() => handleDelete(evt)}
+                      className="btn-danger text-sm"
+                      title="Xóa"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             );

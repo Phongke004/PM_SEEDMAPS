@@ -81,6 +81,24 @@ public class AuthController : ControllerBase
     }
 
     [Authorize]
+    [HttpPut("accounts/{id:guid}/reset-password")]
+    public async Task<IActionResult> AdminResetPassword(Guid id, [FromBody] AppApi.DTO.Auth.ResetPasswordRequest request)
+    {
+        var success = await _authService.AdminResetPasswordAsync(id, request.NewPassword);
+        if (!success) return NotFound(new { message = "Không tìm thấy tài khoản." });
+        return Ok(new { message = "Đã đặt lại mật khẩu thành công." });
+    }
+
+    [Authorize]
+    [HttpPut("accounts/{id:guid}/roles")]
+    public async Task<IActionResult> AssignRoles(Guid id, [FromBody] string[] roles)
+    {
+        var success = await _authService.AssignRolesAsync(id, roles.ToList());
+        if (!success) return NotFound(new { message = "Không tìm thấy tài khoản." });
+        return Ok(new { message = "Đã cập nhật vai trò thành công." });
+    }
+
+    [Authorize]
     [HttpGet("accounts/{accountId:guid}/permissions")]
     public async Task<IActionResult> GetAccountPermissions(Guid accountId, [FromServices] IRolePermissionService roleService)
     {

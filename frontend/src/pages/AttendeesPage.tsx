@@ -25,9 +25,15 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   attended: { label: 'Đã tham dự', color: 'bg-green-100 text-green-700' },
 };
 
+import { checkPermission } from '@/utils/permissions';
+
 export function AttendeesPage() {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  
+  const canCreate = checkPermission('EVENT_CREATE') || checkPermission('EVENT_EDIT');
+  const canEdit = checkPermission('EVENT_EDIT');
+  const canDelete = checkPermission('EVENT_DELETE');
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [attendees, setAttendees] = useState<Attendee[]>([]);
@@ -252,56 +258,55 @@ export function AttendeesPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Người tham dự"
-        subtitle="Quản lý danh sách người tham dự sự kiện"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <input 
-              type="file" 
-              accept=".xlsx, .xls" 
-              className="hidden" 
-              ref={fileInputRef} 
-              onChange={handleFileUpload} 
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-4">
+        {/* Event selector + search */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto flex-1 max-w-2xl">
+          <select
+            className="input sm:max-w-xs"
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+          >
+            <option value="">-- Chọn sự kiện --</option>
+            {events.map((evt) => (
+              <option key={evt.id} value={evt.id}>
+                {evt.name}
+              </option>
+            ))}
+          </select>
+          <div className="relative flex-1">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              className="input pl-10"
+              placeholder="Tìm theo tên, khoa, SĐT..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              disabled={!selectedEventId}
             />
-            <button className="btn-secondary" onClick={handleDownloadTemplate}>
-              <Download size={18} /> Tải file mẫu
-            </button>
-            <button className="btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={!selectedEventId}>
-              <FileSpreadsheet size={18} /> Nhập từ Excel
-            </button>
-            <button className="btn-primary" onClick={openCreate} disabled={!selectedEventId}>
-              <Plus size={18} /> Thêm người
-            </button>
           </div>
-        }
-      />
+        </div>
 
-      {error && <ErrorBanner message={error} />}
-
-      {/* Event selector + search */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <select
-          className="input sm:max-w-xs"
-          value={selectedEventId}
-          onChange={(e) => setSelectedEventId(e.target.value)}
-        >
-          <option value="">-- Chọn sự kiện --</option>
-          {events.map((evt) => (
-            <option key={evt.id} value={evt.id}>
-              {evt.name}
-            </option>
-          ))}
-        </select>
-        <div className="relative flex-1">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            className="input pl-10"
-            placeholder="Tìm theo tên, khoa, SĐT..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            disabled={!selectedEventId}
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+          <input 
+            type="file" 
+            accept=".xlsx, .xls" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
           />
+          <button className="btn-secondary" onClick={handleDownloadTemplate}>
+            <Download size={18} /> Tải file mẫu
+          </button>
+          {canCreate && (
+            <>
+              <button className="btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={!selectedEventId}>
+                <FileSpreadsheet size={18} /> Nhập từ Excel
+              </button>
+              <button className="btn-primary" onClick={openCreate} disabled={!selectedEventId}>
+                <Plus size={18} /> Thêm người
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -337,9 +342,11 @@ export function AttendeesPage() {
           title="Chưa có người tham dự"
           description="Thêm người tham dự hoặc nhập nhanh danh sách"
           action={
-            <button className="btn-primary" onClick={openCreate}>
-              <Plus size={18} /> Thêm người
-            </button>
+            canCreate ? (
+              <button className="btn-primary" onClick={openCreate}>
+                <Plus size={18} /> Thêm người
+              </button>
+            ) : null
           }
         />
       ) : (
@@ -377,20 +384,24 @@ export function AttendeesPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openEdit(att)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:bg-brand-50 hover:text-brand-600 transition-colors"
-                            title="Sửa"
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(att)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                            title="Xóa"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => openEdit(att)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:bg-brand-50 hover:text-brand-600 transition-colors"
+                              title="Sửa"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(att)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                              title="Xóa"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

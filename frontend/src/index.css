@@ -38,6 +38,79 @@
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
+  
+  /* Layout Standards */
+  .page-container {
+    @apply flex flex-col h-full w-full;
+  }
+  .page-header {
+    @apply flex items-center justify-between mb-6;
+  }
+  .page-title {
+    @apply text-xl font-bold text-gray-800 flex items-center gap-2;
+  }
+  .page-content {
+    @apply flex-1 min-h-0 bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+  }
+  .page-content-split {
+    @apply flex flex-col md:flex-row gap-6 flex-1 min-h-0;
+  }
+  
+  /* Panel Standards */
+  .panel {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden;
+  }
+  .panel-header {
+    @apply p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center gap-4;
+  }
+  .panel-title {
+    @apply font-semibold text-gray-800 flex items-center gap-2;
+  }
+  .panel-body {
+    @apply overflow-y-auto flex-1 p-4;
+  }
+  
+  /* Modal Standards */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm;
+  }
+  .modal-container {
+    @apply bg-white rounded-xl shadow-xl w-full overflow-hidden flex flex-col;
+  }
+  .modal-header {
+    @apply flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50;
+  }
+  .modal-title {
+    @apply font-bold text-gray-900 flex items-center gap-2;
+  }
+  .modal-body {
+    @apply p-6 space-y-4 overflow-y-auto;
+  }
+  .modal-footer {
+    @apply pt-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50 p-4;
+  }
+  /* Toast Standards */
+  .toast-fixed {
+    @apply fixed top-4 right-4 z-[100] p-4 border rounded-xl shadow-lg flex items-center gap-3 min-w-[300px];
+    animation: toast-slide-in 0.3s ease-out forwards;
+  }
+  .toast-success {
+    @apply border-green-200 bg-white text-green-700 shadow-green-100;
+  }
+  .toast-error {
+    @apply border-red-200 bg-white text-red-700 shadow-red-100;
+  }
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Custom scrollbar */
