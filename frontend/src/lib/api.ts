@@ -114,6 +114,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     if (response.status === 401) {
       SecureStorage.removeItem('token');
       SecureStorage.removeItem('userRoles');
+      SecureStorage.removeItem('userPermissions');
       window.location.reload();
     }
     const errorData = await response.json().catch(() => ({ message: response.statusText }));
@@ -125,6 +126,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 export const apiAuth = {
   login: (data: any) => request<any>('/Auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  register: (data: any) => request<any>('/Auth/register', { method: 'POST', body: JSON.stringify(data) }),
   forgotPassword: (data: { username: string, email: string }) => request<any>('/Auth/forgot-password', { method: 'POST', body: JSON.stringify(data) }),
   resetPassword: (data: any) => request<any>('/Auth/reset-password', { method: 'POST', body: JSON.stringify(data) }),
   updateProfile: (data: any) => request<any>('/Auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
@@ -199,6 +201,7 @@ export interface AppAccount {
   email: string;
   department: string;
   roles: string[];
+  isLock?: boolean;
 }
 
 export const apiAccounts = {
@@ -208,5 +211,17 @@ export const apiAccounts = {
     request<{ message: string }>(`/Auth/accounts/${accountId}/permissions`, {
       method: 'PUT',
       body: JSON.stringify({ accountId, functionIds })
+    }),
+  lockAccount: (accountId: string, isLock: boolean) =>
+    request<{ message: string }>(`/Auth/accounts/${accountId}/lock?isLock=${isLock}`, { method: 'PUT' }),
+  adminResetPassword: (accountId: string, newPassword: string) =>
+    request<{ message: string }>(`/Auth/accounts/${accountId}/reset-password`, {
+      method: 'PUT',
+      body: JSON.stringify({ newPassword })
+    }),
+  assignRoles: (accountId: string, roles: string[]) =>
+    request<{ message: string }>(`/Auth/accounts/${accountId}/roles`, {
+      method: 'PUT',
+      body: JSON.stringify(roles)
     }),
 };

@@ -6,6 +6,7 @@ import { Modal } from '@/components/Modal';
 import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/Confirm';
+import { checkPermission } from '@/utils/permissions';
 import {
   Plus,
   Building2,
@@ -14,6 +15,7 @@ import {
   Grid3x3,
   MapPin,
   Armchair,
+  Search,
 } from 'lucide-react';
 
 type HallWithStats = Hall & {
@@ -29,12 +31,17 @@ type HallsPageProps = {
 export function HallsPage({ onOpenDesigner }: HallsPageProps) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const canCreate = checkPermission('HALL_CREATE');
+  const canUpdate = checkPermission('HALL_UPDATE');
+  const canDelete = checkPermission('HALL_DELETE');
+  const canDesign = checkPermission('HALL_DESIGN');
 
   const [halls, setHalls] = useState<HallWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingHall, setEditingHall] = useState<Hall | null>(null);
+  const [search, setSearch] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -184,34 +191,50 @@ export function HallsPage({ onOpenDesigner }: HallsPageProps) {
 
   if (loading) return <LoadingSpinner label="Đang tải danh sách hội trường..." />;
 
+  const filteredHalls = halls.filter(hall => 
+    hall.name.toLowerCase().includes(search.toLowerCase()) || 
+    (hall.description && hall.description.toLowerCase().includes(search.toLowerCase()))
+  );
+
   return (
     <div>
-      <PageHeader
-        title="Hội trường"
-        subtitle="Quản lý các hội trường và thiết kế sơ đồ tự do"
-        actions={
-          <button className="btn-primary" onClick={openCreate}>
-            <Plus size={18} /> Thêm hội trường
-          </button>
-        }
-      />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="relative flex-1 w-full sm:max-w-md">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            className="input pl-10 w-full"
+            placeholder="Tìm kiếm hội trường..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex-shrink-0">
+          {canCreate && (
+            <button className="btn-primary" onClick={openCreate}>
+              <Plus size={18} /> Thêm hội trường
+            </button>
+          )}
+        </div>
+      </div>
 
       {error && <ErrorBanner message={error} />}
 
-      {halls.length === 0 ? (
+      {filteredHalls.length === 0 ? (
         <EmptyState
           icon={<Building2 size={32} />}
           title="Chưa có hội trường"
           description="Tạo hội trường đầu tiên, sau đó thiết kế sơ đồ tự do với ghế, bàn, sân khấu..."
           action={
-            <button className="btn-primary" onClick={openCreate}>
-              <Plus size={18} /> Thêm hội trường
-            </button>
+            canCreate ? (
+              <button className="btn-primary" onClick={openCreate}>
+                <Plus size={18} /> Thêm hội trường
+              </button>
+            ) : null
           }
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {halls.map((hall) => (
+          {filteredHalls.map((hall) => (
             <div
               key={hall.id}
               className="card p-5 hover:shadow-md transition-all duration-200 group"
@@ -221,20 +244,24 @@ export function HallsPage({ onOpenDesigner }: HallsPageProps) {
                   <Building2 size={24} />
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => openEdit(hall)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand-600 transition-colors"
-                    title="Sửa"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(hall)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                    title="Xóa"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {canUpdate && (
+                    <button
+                      onClick={() => openEdit(hall)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand-600 transition-colors"
+                      title="Sửa"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={() => handleDelete(hall)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                      title="Xóa"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -258,12 +285,14 @@ export function HallsPage({ onOpenDesigner }: HallsPageProps) {
                 </span>
               </div>
 
-              <button
-                onClick={() => onOpenDesigner(hall.id)}
-                className="w-full btn-secondary justify-center"
-              >
-                <Grid3x3 size={16} /> Thiết kế sơ đồ
-              </button>
+              {canDesign && (
+                <button
+                  onClick={() => onOpenDesigner(hall.id)}
+                  className="w-full btn-secondary justify-center"
+                >
+                  <Grid3x3 size={16} /> Thiết kế sơ đồ
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { type Hall, type AppEvent } from '@/lib/supabase';
+import { SecureStorage } from '@/utils/storage';
 import { dataService } from '@/lib/dataService';
 import { LoadingSpinner, ErrorBanner } from '@/components/PageHeader';
 import { type Page } from '@/components/Sidebar';
@@ -12,6 +13,7 @@ import {
   Clock,
   CheckCircle2,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
 
 type DashboardProps = {
@@ -30,6 +32,36 @@ export function DashboardPage({ onNavigate }: DashboardProps) {
   const [halls, setHalls] = useState<Hall[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const checkAccess = (page: Page) => {
+    const userRoles = SecureStorage.getItem<string[]>('userRoles') || [];
+    const userPermissions = SecureStorage.getItem<string[]>('userPermissions') || [];
+    const isAdmin = userRoles.map(r => r.toLowerCase()).includes('admin');
+    
+    if (isAdmin) return true;
+    
+    if (page === 'events') return userPermissions.includes('EVENT_VIEW');
+    if (page === 'attendees') return userPermissions.includes('EVENT_VIEW');
+    if (page === 'assignment') return userPermissions.includes('EVENT_VIEW') || userPermissions.includes('EVENT_EDIT');
+    if (page === 'halls') return userPermissions.includes('HALL_VIEW') || userPermissions.includes('HALL_CREATE') || userPermissions.includes('HALL_UPDATE');
+    if (page === 'designer') return userPermissions.includes('HALL_DESIGN') || userPermissions.includes('HALL_VIEW');
+    
+    return false;
+  };
+
+  const handleNavigate = (page: Page) => {
+    if (checkAccess(page)) {
+      onNavigate(page);
+    } else {
+      showToast('Bạn không có quyền truy cập chức năng này.', 'error');
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -109,7 +141,7 @@ export function DashboardPage({ onNavigate }: DashboardProps) {
           return (
             <button
               key={card.label}
-              onClick={() => onNavigate(card.page)}
+              onClick={() => handleNavigate(card.page)}
               className="card p-5 hover:shadow-md transition-all duration-200 text-left group"
             >
               <div className="flex items-center justify-between mb-3">
@@ -133,7 +165,7 @@ export function DashboardPage({ onNavigate }: DashboardProps) {
                 <Clock size={18} className="text-brand-500" /> Sự kiện gần đây
               </h3>
               <button
-                onClick={() => onNavigate('events')}
+                onClick={() => handleNavigate('events')}
                 className="text-sm text-brand-600 hover:text-brand-700 font-medium"
               >
                 Xem tất cả
@@ -151,7 +183,7 @@ export function DashboardPage({ onNavigate }: DashboardProps) {
                   return (
                     <button
                       key={evt.id}
-                      onClick={() => onNavigate('assignment')}
+                      onClick={() => handleNavigate('assignment')}
                       className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
                     >
                       <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 flex-shrink-0">
@@ -217,7 +249,7 @@ export function DashboardPage({ onNavigate }: DashboardProps) {
             <h3 className="font-semibold text-gray-900 mb-3">Truy cập nhanh</h3>
             <div className="space-y-2">
               <button
-                onClick={() => onNavigate('halls')}
+                onClick={() => handleNavigate('halls')}
                 className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-brand-50 transition-colors text-left"
               >
                 <Building2 size={18} className="text-brand-600" />
@@ -225,7 +257,7 @@ export function DashboardPage({ onNavigate }: DashboardProps) {
                 <ArrowRight size={14} className="ml-auto text-gray-300" />
               </button>
               <button
-                onClick={() => onNavigate('designer')}
+                onClick={() => handleNavigate('designer')}
                 className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-brand-50 transition-colors text-left"
               >
                 <Armchair size={18} className="text-brand-600" />
@@ -233,7 +265,7 @@ export function DashboardPage({ onNavigate }: DashboardProps) {
                 <ArrowRight size={14} className="ml-auto text-gray-300" />
               </button>
               <button
-                onClick={() => onNavigate('assignment')}
+                onClick={() => handleNavigate('assignment')}
                 className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-brand-50 transition-colors text-left"
               >
                 <CheckCircle2 size={18} className="text-brand-600" />
@@ -244,6 +276,13 @@ export function DashboardPage({ onNavigate }: DashboardProps) {
           </div>
         </div>
       </div>
+
+      {toast && (
+        <div className={`toast-fixed ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>
+          {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+          <div className="font-medium text-sm">{toast.message}</div>
+        </div>
+      )}
     </div>
   );
 }

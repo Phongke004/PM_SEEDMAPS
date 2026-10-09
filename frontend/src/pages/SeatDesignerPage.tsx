@@ -67,7 +67,7 @@ export function SeatDesignerPage({ hallId, onBack }: SeatDesignerProps) {
   const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, Partial<HallElement>>>(new Map());
   const [dragInfo, setDragInfo] = useState<{ id: string; startX: number; startY: number; elemX: number; elemY: number; dragStarts: Map<string, { x: number; y: number }> } | null>(null);
-  const [resizeInfo, setResizeInfo] = useState<{ id: string; startMX: number; startMY: number; startW: number; startH: number } | null>(null);
+  const [resizeInfo, setResizeInfo] = useState<{ id: string; startMX: number; startMY: number; startW: number; startH: number; startX: number; startY: number; type: 'both' | 'width' | 'height' | 'left' } | null>(null);
   const [rotateInfo, setRotateInfo] = useState<{ id: string; cx: number; cy: number; startAngle: number } | null>(null);
   const [zoneLabel, setZoneLabel] = useState('');
 
@@ -319,7 +319,23 @@ export function SeatDesignerPage({ hallId, onBack }: SeatDesignerProps) {
         const dh = e.clientY - resizeInfo.startMY;
         setPendingUpdates((prev) => {
           const m = new Map(prev);
-          m.set(resizeInfo.id, { ...(m.get(resizeInfo.id) || {}), width: Math.max(20, resizeInfo.startW + dw), height: Math.max(20, resizeInfo.startH + dh) });
+          let newW = resizeInfo.startW;
+          let newH = resizeInfo.startH;
+          let newX = resizeInfo.startX;
+
+          if (resizeInfo.type === 'width' || resizeInfo.type === 'both') {
+            newW = Math.max(20, resizeInfo.startW + dw);
+          }
+          if (resizeInfo.type === 'height' || resizeInfo.type === 'both') {
+            newH = Math.max(20, resizeInfo.startH + dh);
+          }
+          if (resizeInfo.type === 'left') {
+            newW = Math.max(20, resizeInfo.startW - dw);
+            const actualDw = resizeInfo.startW - newW;
+            newX = resizeInfo.startX + actualDw;
+          }
+
+          m.set(resizeInfo.id, { ...(m.get(resizeInfo.id) || {}), width: newW, height: newH, x: newX });
           return m;
         });
       } else if (rotateInfo) {
@@ -371,6 +387,11 @@ export function SeatDesignerPage({ hallId, onBack }: SeatDesignerProps) {
         }
         setMarqueeInfo(null);
       }
+      
+      if ((dragInfo || resizeInfo || rotateInfo) && actionHistoryPushed.current) {
+        setDirty(true);
+      }
+
       setDragInfo(null);
       setResizeInfo(null);
       setRotateInfo(null);
@@ -614,13 +635,14 @@ export function SeatDesignerPage({ hallId, onBack }: SeatDesignerProps) {
             if (!selectedIds.has(id)) setSelectedIds(new Set([id]));
           }
         }}
-        className={`absolute cursor-move select-none flex items-center justify-center rounded-md border-2 transition-shadow ${colorClass} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-1 shadow-lg z-20' : 'hover:shadow-md'} ${elem.element_type === 'zone' ? 'border-dashed' : ''}`}
+        className={`absolute cursor-move select-none flex items-center justify-center rounded-md border-2 transition-shadow ${colorClass} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-1 shadow-lg' : 'hover:shadow-md'} ${elem.element_type === 'zone' ? 'border-dashed' : ''}`}
         style={{
           left: (elem.x || 0) - originX,
           top: (elem.y || 0) - originY,
           width: elem.width || 32,
           height: elem.height || 32,
           transform: `rotate(${elem.rotation || 0}deg)`,
+          zIndex: isSelected ? 20 : (elem.element_type === 'zone' ? 0 : 10),
         }}
         title={elem.label || defaults.label}
       >
@@ -636,13 +658,41 @@ export function SeatDesignerPage({ hallId, onBack }: SeatDesignerProps) {
         {/* Resize handle */}
         {isSelected && tool === 'select' && (
           <>
+            {/* Left handle (Left Width) */}
             <div
               onMouseDown={(e) => {
                 e.stopPropagation();
                 actionHistoryPushed.current = false;
-                setResizeInfo({ id, startMX: e.clientX, startMY: e.clientY, startW: elem.width || 32, startH: elem.height || 32 });
+                setResizeInfo({ id, startMX: e.clientX, startMY: e.clientY, startW: elem.width || 32, startH: elem.height || 32, startX: elem.x || 0, startY: elem.y || 0, type: 'left' });
               }}
-              className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-brand-500 border-2 border-white cursor-se-resize"
+              className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-3 rounded-full bg-brand-500 border-2 border-white cursor-w-resize"
+            />
+            {/* Right handle (Width) */}
+            <div
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                actionHistoryPushed.current = false;
+                setResizeInfo({ id, startMX: e.clientX, startMY: e.clientY, startW: elem.width || 32, startH: elem.height || 32, startX: elem.x || 0, startY: elem.y || 0, type: 'width' });
+              }}
+              className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-3 rounded-full bg-brand-500 border-2 border-white cursor-e-resize"
+            />
+            {/* Bottom handle (Height) */}
+            <div
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                actionHistoryPushed.current = false;
+                setResizeInfo({ id, startMX: e.clientX, startMY: e.clientY, startW: elem.width || 32, startH: elem.height || 32, startX: elem.x || 0, startY: elem.y || 0, type: 'height' });
+              }}
+              className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-brand-500 border-2 border-white cursor-s-resize"
+            />
+            {/* Corner handle (Both) */}
+            <div
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                actionHistoryPushed.current = false;
+                setResizeInfo({ id, startMX: e.clientX, startMY: e.clientY, startW: elem.width || 32, startH: elem.height || 32, startX: elem.x || 0, startY: elem.y || 0, type: 'both' });
+              }}
+              className="absolute -bottom-1.5 -right-1.5 w-3 h-3 rounded-full bg-brand-500 border-2 border-white cursor-se-resize"
             />
             <button
               onMouseDown={(e) => {

@@ -51,8 +51,23 @@ public class DynamicPermissionMiddleware
         // Lấy danh sách Roles của user
         var userRoles = context.User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
 
-        // Kiểm tra quyền theo bảng ApiRoleMapping
         using var scope = context.RequestServices.CreateScope();
+
+        // Kiểm tra xem tài khoản có bị khóa không
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppApi.DataAccess.ApplicationDbContext>();
+        var userIdStr = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(userIdStr, out var userId))
+        {
+            var account = await dbContext.Accounts.FindAsync(userId);
+            if (account != null && account.IsLock)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new { message = "Tài khoản của bạn đã bị khóa." });
+                return;
+            }
+        }
+
+        // Kiểm tra quyền theo bảng ApiRoleMapping
         var rolePermissionService = scope.ServiceProvider.GetRequiredService<IRolePermissionService>();
 
         var routePattern = (endpoint as Microsoft.AspNetCore.Routing.RouteEndpoint)?.RoutePattern?.RawText;

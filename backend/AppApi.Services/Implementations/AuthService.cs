@@ -37,9 +37,16 @@ public class AuthService : IAuthService
         if (account == null)
             return null;
 
-        if (account.IsLock && account.TimeLock.HasValue && account.TimeLock > DateTime.UtcNow)
+        if (account.IsLock)
         {
-            throw new InvalidOperationException($"Tài khoản bị tạm khóa đến {account.TimeLock.Value.ToLocalTime()} do nhập sai mật khẩu nhiều lần.");
+            if (account.TimeLock.HasValue && account.TimeLock > DateTime.UtcNow)
+            {
+                throw new InvalidOperationException($"Tài khoản bị tạm khóa đến {account.TimeLock.Value.ToLocalTime()} do nhập sai mật khẩu nhiều lần.");
+            }
+            else if (!account.TimeLock.HasValue)
+            {
+                throw new InvalidOperationException("Tài khoản của bạn đã bị khóa bởi quản trị viên.");
+            }
         }
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, account.PasswordHash))
@@ -60,6 +67,8 @@ public class AuthService : IAuthService
         account.TimeLock = null;
 
         var roles = account.AccountRoles.Select(r => r.Role.Name).ToList();
+        
+        var permissions = await GetUserPermissionsAsync(account.Id, roles);
         var (accessToken, expiresAt) = GenerateJwtToken(account, roles);
         var refreshToken = GenerateRefreshToken();
 
@@ -74,6 +83,7 @@ public class AuthService : IAuthService
             FullName = account.FullName,
             Email = account.Email,
             Roles = roles,
+            Permissions = permissions,
             AccessToken = accessToken,
             RefreshToken = refreshToken,
             ExpiresAt = expiresAt
@@ -96,6 +106,7 @@ public class AuthService : IAuthService
             return null;
 
         var roles = account.AccountRoles.Select(r => r.Role.Name).ToList();
+        var permissions = await GetUserPermissionsAsync(account.Id, roles);
         var (newAccessToken, expiresAt) = GenerateJwtToken(account, roles);
         var newRefreshToken = GenerateRefreshToken();
 
@@ -110,6 +121,7 @@ public class AuthService : IAuthService
             FullName = account.FullName,
             Email = account.Email,
             Roles = roles,
+            Permissions = permissions,
             AccessToken = newAccessToken,
             RefreshToken = newRefreshToken,
             ExpiresAt = expiresAt
@@ -181,6 +193,10 @@ public class AuthService : IAuthService
         {
             account.TimeLock = null;
             account.AccessFailedCount = 0;
+        }
+        else
+        {
+            account.TimeLock = null;
         }
         await _uow.CompleteAsync();
         return true;
@@ -321,5 +337,48 @@ public class AuthService : IAuthService
         }
 
         return principal;
+    }
+
+    private async Task<List<string>> GetUserPermissionsAsync(Guid accountId, List<string> roles)
+    {
+        if (roles.Contains(CommonConstants.RoleAdmin, StringComparer.OrdinalIgnoreCase))
+        {
+            return await _uow.Functions.Query().Select(f => f.Code).ToListAsync();
+        }
+
+        var accountFunctions = await _uow.AccountFunctions.Query()
+            .Where(af => af.AccountId == accountId)
+            .Select(af => af.Function.Code)
+            .ToListAsync();
+
+        return accountFunctions.Distinct().ToList();
+    }
+    public async Task<bool> AdminResetPasswordAsync(Guid accountId, string newPassword)
+    {
+        var account = await _uow.Accounts.GetByIdAsync(accountId);
+        if (account == null) return false;
+
+        account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await _uow.CompleteAsync();
+        return true;
+    }
+
+    public async Task<bool> AssignRolesAsync(Guid accountId, List<string> roleNames)
+    {
+        var account = await _uow.Accounts.Query().Include(a => a.AccountRoles).FirstOrDefaultAsync(a => a.Id == accountId);
+        if (account == null) return false;
+
+        // Remove old roles
+        account.AccountRoles.Clear();
+
+        // Add new roles
+        var roles = await _uow.Roles.Query().Where(r => roleNames.Contains(r.Name)).ToListAsync();
+        foreach (var role in roles)
+        {
+            account.AccountRoles.Add(new AccountRole { AccountId = account.Id, RoleId = role.Id });
+        }
+
+        await _uow.CompleteAsync();
+        return true;
     }
 }

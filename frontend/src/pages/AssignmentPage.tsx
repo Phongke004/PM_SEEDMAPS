@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/Confirm';
+import { checkPermission } from '@/utils/permissions';
 
 type AssignmentWithAttendee = Assignment & {
   attendee: Attendee | null;
@@ -48,6 +49,7 @@ const ELEMENT_COLORS: Record<string, string> = {
 export function AssignmentPage() {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const canEdit = checkPermission('EVENT_EDIT');
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [hall, setHall] = useState<Hall | null>(null);
@@ -175,6 +177,7 @@ export function AssignmentPage() {
   const chairElements = elements.filter((e) => e.element_type === 'chair');
 
   const assignAttendee = async (elementId: string, attendeeId: string) => {
+    if (!canEdit) return;
     setAssigning(true);
     const existing = assignments.get(elementId);
 
@@ -194,6 +197,7 @@ export function AssignmentPage() {
   };
 
   const unassignElement = async (elementId: string) => {
+    if (!canEdit) return;
     const existing = assignments.get(elementId);
     if (!existing) return;
 
@@ -322,14 +326,16 @@ export function AssignmentPage() {
         title="Bố trí chỗ ngồi"
         subtitle="Gán người tham dự vào chỗ ngồi trên sơ đồ"
         actions={
-          <>
-            <button className="btn-secondary" onClick={handleClearAll} disabled={!selectedEventId || assignments.size === 0 || assigning}>
-              <Trash2 size={16} /> Xóa tất cả
-            </button>
-            <button className="btn-primary" onClick={handleAutoAssign} disabled={!selectedEventId || assigning || pendingAttendees.length === 0}>
-              <Wand2 size={18} /> Tự động bố trí
-            </button>
-          </>
+          canEdit ? (
+            <>
+              <button className="btn-secondary" onClick={handleClearAll} disabled={!selectedEventId || assignments.size === 0 || assigning}>
+                <Trash2 size={16} /> Xóa tất cả
+              </button>
+              <button className="btn-primary" onClick={handleAutoAssign} disabled={!selectedEventId || assigning || pendingAttendees.length === 0}>
+                <Wand2 size={18} /> Tự động bố trí
+              </button>
+            </>
+          ) : null
         }
       />
 
@@ -645,7 +651,7 @@ export function AssignmentPage() {
                 </>
               )}
             </div>
-            {detailElement.element_type === 'chair' && assignments.get(detailElement.id) && (
+            {canEdit && detailElement.element_type === 'chair' && assignments.get(detailElement.id) && (
               <button
                 onClick={() => {
                   unassignElement(detailElement.id);
